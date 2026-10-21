@@ -118,6 +118,44 @@ To check a rootfs someone else built:
 python -I tools/rootfs/verify.py path/to/rootfs.tar.gz
 ```
 
+## Extraction on device
+
+Android ships no `tar` and the rootfs lives *inside* the APK, so [P1-4](../TODO.md) unpacks it in
+Kotlin: `app/src/main/java/com/rs/ocportable/RootfsReader.kt` (archive parsing) and
+`RootfsManager.kt` (when to run, and stamping).
+
+The archive is written as **USTAR explicitly**. Python's default is PAX, which injects per-member
+extended headers when a name or link target is long — headers a narrow reader would have to
+implement. Every member fits USTAR (names ≤97 bytes, link targets ≤54), and `verify.py` now rejects
+anything that would not, so a growing rootfs fails the build rather than the device.
+
+Only member types `0` (file), `1` (hard link), `2` (symlink) and `5` (directory) occur. There are
+520 symlinks and 254 hard links — the latter almost entirely timezone aliases, materialised after the
+tree is complete so their targets exist regardless of member order.
+
+Extraction writes to `rootfs.staging/` and only moves it into place once complete, so an interrupted
+run can never leave a half-written tree that the next launch trusts. The stamp holds the rootfs
+`tar_sha256` from `MANIFEST.json`, compiled into `BuildConfig`, so a rebuilt rootfs replaces a stale
+one instead of being silently kept.
+
+### Three traps in the extractor
+
+1. **`str.lstrip("./")` strips a character *set*, not a prefix.** In the builder it removed the
+   leading dot from APK control members, so `.PKGINFO`, `.post-install` and `.SIGN.*` shipped into
+   the rootfs as `PKGINFO`, `post-install` and `SIGN.*` — and `verify.py` missed them because it
+   checked for a leading dot that no longer existed. Seven files were affected; the check now matches
+   on name.
+2. **Java's Path API is host-parsed.** `Files.createSymbolicLink` rewrites the guest target
+   `/bin/busybox` to `\bin\busybox` on Windows, which would ship a rootfs with a dangling shell. A
+   Linux-only test asserts the exact archive text, because Linux is the host the device resembles.
+3. **`File.walkTopDown()` follows symlinks.** An absolute guest link resolves to the host's own
+   `/bin` on Linux, so a symlink-integrity walk escaped the rootfs and wandered the build machine.
+   That is exactly how a broken check passed on Windows (where the guest path does not exist) and
+   failed in CI. The walk now uses `listFiles` and treats a symlink as a leaf.
+
+Taken together these are one lesson: **a Windows host cannot verify a Linux filesystem.** The two
+bugs that mattered were both invisible locally and only surfaced on the Ubuntu runner.
+
 ## Still open
 
 - **Does a build from `alpine:3.24` via Docker match `build.py` byte-for-byte?** It will not, because

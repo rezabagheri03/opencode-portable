@@ -128,7 +128,7 @@ Everything else waits.
 | P1-1 ✅ | Gradle project skeleton | `assembleDebug` produces an APK; `minSdk` 31, `arm64-v8a` only, `extractNativeLibs=true` | — | 1 d |
 | P1-2 ◐ | Package binaries as native libs | `libopencode.so` and `libproot.so` in `jniLibs/`; both exec successfully from `nativeLibraryDir` on device | P1-1 | 1 d |
 | P1-3 ✅ | Rootfs build pipeline | A Docker script emits `rootfs.tar.gz` reproducibly; `apk info` output is saved as `THIRD_PARTY_LICENSES.md` | P0-1 | 2 d |
-| P1-4 | First-run extraction | Fresh install extracts the rootfs with visible progress; second launch skips it; a corrupted extraction is detected and redone | P1-3 | 1 d |
+| P1-4 ✅ | First-run extraction | Fresh install extracts the rootfs with visible progress; second launch skips it; a corrupted extraction is detected and redone | P1-3 | 1 d |
 | P1-5 | FGS + engine launch | `specialUse` FGS spawns proot→`opencode serve` **on the fixed port 4096 with a generated `OPENCODE_PASSWORD`** ([ADR-012](docs/04-decisions.md#adr-012)); health poll reports ready; child stderr is visible in the UI on failure | P1-2, P1-4 | 3 d |
 | P1-6 | WebView host | GUI loads on device at `http://127.0.0.1:4096/?auth_token=…`, so settings and drafts survive relaunch; dark background before load (no white flash); no cleartext error; Android back navigates the UI; the [three hooks](docs/03-platform.md#three-webview-hooks-a-browser-does-not-need) are wired (file chooser, permission grant, media gesture) | P1-5 | 3 d |
 | P1-7 | Lifecycle | App backgrounded for 30 min → foreground → still working; engine death → auto-restart + WebView reload; explicit Quit stops the child cleanly | P1-5 | 2 d |
@@ -210,7 +210,7 @@ Everything else waits.
 | Phase | Tasks | Done |
 |---|---|---|
 | P0 Spikes | 8 | 0 |
-| P1 MVP | 10 | 2 (P1-1 ✅, P1-3 ✅, P1-2 ◐ launcher written, needs device) |
+| P1 MVP | 10 | 3 (P1-1 ✅, P1-3 ✅, P1-4 ✅, P1-2 ◐ launcher written, needs device) |
 | P2 Usable | 9 | 0 |
 | P3 Watch | 10 | 0 |
 | P4 Lean | 5 | 0 |

@@ -114,6 +114,36 @@ Three silent traps found and fixed; all three are recorded in
 Toolchain note: no Docker on this host, so `build.py` is the working path and the Dockerfile is kept
 as the reference implementation. Docker was never required in principle.
 
+### P1-4 First-run extraction — **done** 2026-10-21
+
+`RootfsReader.kt` parses the archive in Kotlin (Android has no tar, and the rootfs is inside the
+APK); `RootfsManager.kt` decides when to run and stamps the result. Extraction goes to a staging
+directory and is only moved into place once complete, so an interrupted run cannot leave a tree the
+next launch trusts. The stamp carries the rootfs `tar_sha256` in `BuildConfig`, so a rebuilt rootfs
+replaces a stale one.
+
+Real test coverage: 10 tests, one of which extracts the actual 1,629-member archive and checks
+loader, `libstdc++`, `rg`, certs and every relative symlink.
+
+The archive is now written **USTAR explicitly** — Python's default (PAX) injects extended headers a
+narrow reader would have to implement, and every member fits USTAR anyway.
+
+Three bugs found, two of them invisible on Windows:
+
+1. **`str.lstrip("./")` strips a character set, not a prefix.** It stripped the leading dot from APK
+   control members, shipping `.PKGINFO`, `.post-install` and `.SIGN.*` into the rootfs as
+   `PKGINFO`, `post-install`, `SIGN.*`. `verify.py` missed it because it tested for a leading dot
+   that had already been removed. Seven files; fixed at the source and the check now matches by name.
+2. **`Files.createSymbolicLink` rewrites guest paths.** `/bin/busybox` became `\bin\busybox` on
+   Windows. A rootfs built on a Windows host would have a dangling shell.
+3. **`File.walkTopDown()` follows symlinks**, so an integrity walk escaped the rootfs into the
+   host's own `/bin` on Linux.
+
+Bugs 2 and 3 only appear on Linux, which is why CI caught the third one after it passed locally. The
+general lesson is recorded in [08-rootfs.md](../docs/08-rootfs.md#three-traps-in-the-extractor): a
+Windows host cannot verify a Linux filesystem, so the symlink exactness assertion runs only on POSIX
+and CI is the real check.
+
 ### Build pipeline + CI — `bash tools/build.sh` 2026-10-21
 
 One script does everything (fetch → verify → test → assemble → check the APK), and
