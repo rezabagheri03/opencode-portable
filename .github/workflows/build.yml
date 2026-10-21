@@ -32,10 +32,17 @@ jobs:
         with:
           python-version: "3.12"
 
+      # `packages: tools` is the action's default and the `tools` package no longer exists in the
+      # SDK repository, which fails the step before the build starts. Ask for only what is needed.
       - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
 
+      # The NDK is deliberately absent: nothing here compiles native code. proot and the engine are
+      # both prebuilt binaries, fetched and hash-checked. It returns only if proot is ever built
+      # from source.
       - name: Install SDK packages
-        run: sdkmanager --install "platforms;android-36" "build-tools;36.0.0" "ndk;30.0.14904198"
+        run: sdkmanager --install "platforms;android-36" "build-tools;36.0.0"
 
       - name: Cache downloads
         uses: actions/cache@v4
