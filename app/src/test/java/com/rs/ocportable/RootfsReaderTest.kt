@@ -52,15 +52,31 @@ class RootfsReaderTest {
             assertTrue("missing rg", File(out, "usr/bin/rg").isFile)
             assertTrue("missing ca-certs", File(out, "etc/ssl/certs/ca-certificates.crt").isFile)
 
-            // Every symlink must resolve to something inside the tree, except the runtime mounts.
-            val root = out.canonicalFile
-            val unresolved = out.walkTopDown()
-                .filter { java.nio.file.Files.isSymbolicLink(it.toPath()) }
-                .map { it to java.nio.file.Files.readSymbolicLink(it.toPath()).toString() }
-                .filterNot { (link, target) -> target.startsWith("/") || resolveWithin(root, link, target) != null }
-                .map { (link, target) -> "${link.relativeTo(out)} -> $target" }
-                .toList()
-            assertEquals("broken symlinks: $unresolved", emptyList<String>(), unresolved)
+            // Every relative symlink must resolve inside the tree.
+            //
+            // This walks with listFiles rather than File.walkTopDown on purpose. walkTopDown asks
+            // isDirectory(), which *follows* symlinks — and an absolute guest link like
+            // /bin/busybox resolves to the host's own /bin on Linux, so the walk leaves the rootfs
+            // and wanders the build machine. That is how this check passed on Windows (where the
+            // guest path does not exist) and failed in CI. A symlink is a leaf here, which is what
+            // extraction produces.
+            val unresolved = mutableListOf<String>()
+            fun walk(dir: File) {
+                for (entry in dir.listFiles().orEmpty()) {
+                    val path = entry.toPath()
+                    if (java.nio.file.Files.isSymbolicLink(path)) {
+                        val target = java.nio.file.Files.readSymbolicLink(path).toString()
+                        // Absolute targets are guest paths, valid only inside proot.
+                        if (!target.startsWith("/") && resolveWithin(out, entry, target) == null) {
+                            unresolved += "${entry.relativeTo(out)} -> $target"
+                        }
+                    } else if (entry.isDirectory) {
+                        walk(entry)
+                    }
+                }
+            }
+            walk(out)
+            assertEquals("broken symlinks: $unresolved", emptyList<String>(), unresolved.sorted())
         } finally {
             out.deleteRecursively()
         }
