@@ -20,11 +20,20 @@ tools/build.sh                   # the whole build, local and CI: binaries → r
 
 Everything is offline after the first run; downloads are cached under `.cache/rootfs/`.
 
-**Reproducible [V].** Two consecutive builds are byte-identical
-(`sha256 bd22ef82187327e5…`, 14,455,551 bytes). Member order, modes, uid/gid and mtimes are fixed,
-and the gzip header is written through a `GzipFile` with an explicit `mtime` — setting it on the
-`TarFile` instead does nothing, because tarfile only controls the header of the `GzipFile` it is
-given. Without that, the pinned hash would change every run and mean nothing.
+**Reproducible across machines, with one caveat [V].** A Windows build and an Ubuntu CI build
+produce **byte-identical tar payloads**: `tar_sha256 a95a5a2b…`, 1,636 members, same order, same
+modes, uid/gid and mtimes, and identical file contents (verified member by member).
+
+The compressed `.tar.gz` bytes are **not** identical between hosts, and cannot be pinned meaningfully:
+they differ because Python links whatever zlib it was built against — Windows CPython 3.14 reports
+`1.3.1.zlib-ng`, Ubuntu's uses stock zlib — and the two emit different but equally valid deflate
+streams for identical input (14,455,551 vs 14,504,416 bytes). `MANIFEST.json` therefore records
+`tar_sha256` as the authoritative hash and `gz_sha256` as informational. Pinning the `.gz` would have
+failed CI on a build that was correct.
+
+Within one machine, two consecutive builds are byte-identical. That required writing the gzip header
+through a `GzipFile` with an explicit `mtime`; setting it on the `TarFile` instead does nothing,
+because tarfile only controls the header of the `GzipFile` it is given.
 
 ## What is in it
 
@@ -40,8 +49,8 @@ given. Without that, the pinned hash would change every run and mean nothing.
 | `bash` | 5.3.9-r1 | `ShellSelect` probes `bash` before `sh` |
 | `busybox` | 1.37.0-r31 | the applet symlinks that make up `/bin` and `/usr/bin` |
 
-**Measured:** 14,455,551 bytes compressed, 1,636 members, 520 symlinks. [03](03-platform.md)
-estimated ~16 MB compressed and ~45 MB unpacked; the compressed figure is confirmed.
+**Measured:** 14,455,551 bytes compressed, 1,636 members, 520 symlinks, `tar_bytes` 36,823,040.
+[03](03-platform.md) estimated ~16 MB compressed and ~45 MB unpacked; both hold.
 
 `verify.py` asserts the load-bearing members and every symlink chain, so a package that silently
 stops pulling in `libstdc++` fails the build instead of the device.

@@ -310,14 +310,25 @@ def main():
                 "sha256": sha256(fetch(apk_url(entries[n]), cache))}
             for n in sorted(entries)
         },
-        "rootfs": {"file": tar_path.name, "sha256": sha256(tar_path.read_bytes()),
-                   "bytes": tar_path.stat().st_size, "members": len(tree)},
+        "rootfs": {
+            "file": tar_path.name,
+            # The hash that matters, and the only one that is stable across platforms. The .tar.gz
+            # bytes are NOT reproducible between hosts: Python links whatever zlib it was built
+            # against (Windows CPython 3.14 ships zlib-ng, Ubuntu's ships stock zlib), and the two
+            # produce different, equally valid deflate streams from identical input. Verified:
+            # same tar payload, different compressed length.
+            "tar_sha256": sha256(gzip.decompress(tar_path.read_bytes())),
+            "gz_sha256": sha256(tar_path.read_bytes()),  # informational; host-dependent
+            "bytes": tar_path.stat().st_size,
+            "tar_bytes": len(gzip.decompress(tar_path.read_bytes())),
+            "members": len(tree),
+        },
     }
     (out / "MANIFEST.json").write_text(json.dumps(manifest, indent=2) + "\n")
     (out / "THIRD_PARTY_LICENSES.md").write_text(licenses(manifest, order), encoding="utf-8")
 
     print(f"rootfs   {tar_path}  {manifest['rootfs']['bytes']:,} bytes  "
-          f"{manifest['rootfs']['sha256'][:16]}…  {len(tree):,} members")
+          f"tar {manifest['rootfs']['tar_sha256'][:16]}…  {len(tree):,} members")
     print(f"packages {len(entries)}")
     for probe in ("bin/sh", "bin/busybox", "usr/bin/rg", "usr/lib/libstdc++.so.6",
                   "usr/bin/git", "etc/ssl/certs/ca-certificates.crt"):

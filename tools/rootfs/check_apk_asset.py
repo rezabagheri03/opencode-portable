@@ -6,6 +6,7 @@ file extracted on first run is not the file `verify.py` checked. This makes that
 
   python -I tools/rootfs/check_apk_asset.py <apk> <manifest.json>
 """
+import gzip
 import hashlib
 import json
 import sys
@@ -26,8 +27,14 @@ def main(apk_path: str, manifest_path: str) -> int:
 
     digest = hashlib.sha256(data).hexdigest()
     problems = []
-    if digest != expected["sha256"]:
-        problems.append(f"sha256 {digest} != pinned {expected['sha256']}")
+    # Compare against the hash of the *uncompressed* tar. The .gz bytes legitimately differ
+    # between hosts because Python links different zlib builds (zlib-ng on Windows CPython,
+    # stock zlib on Ubuntu), so pinning them would fail CI on a correct build.
+    if digest != expected["gz_sha256"]:
+        problems.append(f"sha256 {digest} != pinned {expected['gz_sha256']}")
+    tar_digest = hashlib.sha256(gzip.decompress(data)).hexdigest()
+    if tar_digest != expected["tar_sha256"]:
+        problems.append(f"tar sha256 {tar_digest} != pinned {expected['tar_sha256']}")
     if info.compress_type != 0:
         problems.append(f"asset is compressed (method {info.compress_type}); expected STORED")
     if len(data) != expected["bytes"]:

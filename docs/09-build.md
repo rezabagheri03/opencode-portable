@@ -63,8 +63,28 @@ anyway, not through the app's native library search path.
 requests, and manually. Runs on `ubuntu-24.04` rather than `ubuntu-latest`: a runner image bump that
 changed the JDK or NDK would otherwise silently change a build whose artifact hashes are pinned.
 
-Steps: checkout → JDK 21 → Python 3.12 → `setup-android` → `sdkmanager` for platform 36, build-tools
-36, NDK 30.0.14904198 → restore the download cache → `bash tools/build.sh` → upload artifacts.
+Steps: checkout → JDK 21 → Python 3.12 → `setup-android` → `sdkmanager` for platform 36 and
+build-tools 36 → restore the download cache → `bash tools/build.sh` → upload artifacts.
+
+**First run: green.** Every step passed and the artifacts uploaded:
+
+| | |
+|---|---|
+| APK | 121,229,540 bytes |
+| rootfs | 14,418,572 bytes |
+| rootfs `tar_sha256` | matches the local Windows build exactly |
+
+Two corrections came out of actually running it:
+
+- `android-actions/setup-android` defaults to `packages: tools platform-tools`, and **`tools` no
+  longer exists in the SDK repository**, so the step failed before the build began. It now asks for
+  `platform-tools` only.
+- **The NDK is not installed.** Nothing compiles native code — proot and the engine are prebuilt and
+  hash-checked. It was in the original step as an unverified guess and is dropped.
+
+The APK size differs from a local build by ~49 KB because the debug keystore and `apksigner` differ
+per machine; the content is what is verified, not the APK bytes. See
+[08-rootfs.md](08-rootfs.md#the-pipeline) for why the `.tar.gz` bytes legitimately differ too.
 
 The download cache is keyed on `tools/fetch_binaries.py` and `tools/rootfs/build.py`, so it is
 invalidated when either the pin or the package set changes. A cold fetch takes ~50 seconds.
