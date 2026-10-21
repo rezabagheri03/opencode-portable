@@ -78,7 +78,16 @@ def sha256(data: bytes) -> str:
 
 
 def norm(name: str) -> str:
-    name = name.lstrip("./")
+    """Normalise an archive member path.
+
+    `str.lstrip("./")` was wrong here: lstrip takes a *character set*, so it stripped every leading
+    dot and slash. That turned the APK control files `.PKGINFO`, `.post-install` and `.SIGN.*` into
+    `PKGINFO`, `post-install` and `SIGN.*`, which then shipped in the rootfs because the ". control
+    file" filter had nothing left to match.
+    """
+    while name.startswith("./"):
+        name = name[2:]
+    name = name.lstrip("/")
     return "" if name in (".", "") else name
 
 
@@ -215,7 +224,11 @@ def pack(tree, dest: Path):
     # controls mtime only through the GzipFile it is handed.
     with open(dest, "wb") as raw:
         with gzip.GzipFile(fileobj=raw, mode="wb", compresslevel=9, mtime=EPOCH) as gz:
-            with tarfile.open(fileobj=gz, mode="w") as tf:
+            # USTAR, explicitly. The default (PAX) adds per-member extended headers when a name or
+            # link target is long, and the on-device extractor has to parse this format in Kotlin —
+            # the tar lives *inside* the archive and Android ships no tar. Every member here fits
+            # USTAR (names <=97 bytes, link targets <=54), and verify.py enforces that it stays so.
+            with tarfile.open(fileobj=gz, mode="w", format=tarfile.USTAR_FORMAT) as tf:
                 for key in sorted(tree):
                     item, body = tree[key]
                     info = tarfile.TarInfo(key)

@@ -33,6 +33,12 @@ REQUIRED = [
 # Bind-mounted at runtime by the launcher, so their absence from the image is correct.
 RUNTIME_MOUNTS = ("proc/", "sys/", "dev/", "etc/mtab")
 
+# APK package metadata. Never part of a root filesystem.
+CONTROL_FILES = {
+    "PKGINFO", "post-install", "pre-install", "post-upgrade", "pre-upgrade",
+    "post-deinstall", "pre-deinstall", "trigger", "datalist",
+}
+
 
 def main(path: str) -> int:
     tf = tarfile.open(path)
@@ -64,12 +70,27 @@ def main(path: str) -> int:
         if not resolve(m.name) and not m.name.startswith(RUNTIME_MOUNTS):
             problems.append(f"broken symlink: {m.name} -> {m.linkname}")
 
+    # The builder skips APK control members, but a normalisation bug once stripped their leading
+    # dot and shipped them. Check by name, not by prefix, so that bug cannot come back silently.
     for name in names:
-        if name.startswith(".") and name != ".ok":
-            problems.append(f"apk control file leaked: {name}")
+        base = name.rsplit("/", 1)[-1]
+        if base in CONTROL_FILES or base.startswith("SIGN.") or name.startswith("."):
+            if name != ".ok":
+                problems.append(f"apk control file leaked: {name}")
 
     if "etc/alpine-release" not in names:
         problems.append("not an Alpine rootfs (no etc/alpine-release)")
+
+    # RootfsReader.kt parses this format without tarfile's tolerance. Anything that does not fit a
+    # plain USTAR header would need a PAX or GNU extension the extractor does not implement, so a
+    # long name must fail here rather than on the device.
+    for m in members.values():
+        if len(m.name.encode()) > 100:
+            problems.append(f"name too long for USTAR: {m.name}")
+        if m.linkname and len(m.linkname.encode()) > 100:
+            problems.append(f"link target too long for USTAR: {m.name} -> {m.linkname}")
+        if m.type not in (b"0", b"1", b"2", b"5"):
+            problems.append(f"unsupported member type {m.type!r}: {m.name}")
 
     print(f"{path}: {len(members):,} members, {len(links)} symlinks")
     for problem in problems:

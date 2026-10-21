@@ -27,3 +27,6 @@ opencode-src/
 _p0/scratch/
 _p0/extract/
 _p0/downloads/
+
+# Build logs
+*.log

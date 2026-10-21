@@ -13,6 +13,19 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         ndk { abiFilters += "arm64-v8a" }
+
+        // Which rootfs this APK carries. RootfsManager stamps the extracted tree with it and
+        // re-extracts when the stamp disagrees, so a rebuilt rootfs replaces a stale one instead of
+        // being silently ignored. Sourced from the manifest the rootfs build wrote.
+        val rootfsManifest = rootProject.file("dist/rootfs/MANIFEST.json")
+        val rootfsHash = if (rootfsManifest.exists()) {
+            Regex("\"tar_sha256\"\\s*:\\s*\"([0-9a-f]+)\"")
+                .find(rootfsManifest.readText())?.groupValues?.get(1)
+                ?: "unstamped"
+        } else {
+            "unstamped"
+        }
+        buildConfigField("String", "ROOTFS_SHA256", "\"$rootfsHash\"")
     }
 
     buildFeatures { buildConfig = true }
