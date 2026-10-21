@@ -1,0 +1,5 @@
+﻿@opencode/cli-linux-arm64  latest=2.1.1  unpacked=199.5MB  files=2  os=linux  cpu=arm64
+@opencode/cli-linux-arm64-musl  latest=2.1.1  unpacked=197.6MB  files=2  os=linux  cpu=arm64
+@opencode/cli-linux-x64  latest=2.1.1  unpacked=203.8MB  files=2  os=linux  cpu=x64
+@opencode/cli-darwin-arm64  latest=2.1.1  unpacked=179.9MB  files=2  os=darwin  cpu=arm64
+@opencode/cli-windows-arm64  latest=2.1.1  unpacked=196.4MB  files=2  os=win32  cpu=arm64

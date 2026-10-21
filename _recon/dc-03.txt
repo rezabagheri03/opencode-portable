@@ -1,0 +1,130 @@
+﻿  [D] oauth
+  [D] permission
+  [D] persistent-pty
+  [D] plugin
+  [D] project
+  [D] pty
+  [D] reference
+  [D] ripgrep
+  [D] session
+  [D] shell
+  [D] skill
+  [D] tool
+  [D] util
+  [D] v1
+  [D] vcs
+  [D] wellknown
+  [D] workspace
+  [D] worktree
+       agent.ts
+       aisdk.ts
+       aisdk-native.ts
+       app.ts
+       bus.ts
+       command.ts
+       config.ts
+       credential.ts
+       event-logger.ts
+       file-access.ts
+       file-mutation.ts
+       file-retention.ts
+       filesystem.ts
+       form.ts
+       formatter.ts
+       generate.ts
+       git.ts
+       image.ts
+       instance.ts
+       instruction-discovery.ts
+       integration.ts
+       job.ts
+       kv.ts
+       location.ts
+       location-activity.ts
+       location-lifecycle.ts
+       location-service-map.ts
+       location-services.ts
+       managed-policy.ts
+       markdown.d.ts
+       mime.ts
+       model.ts
+       model-resolver.ts
+       model-retry.ts
+       models-dev.ts
+       node-ffi.d.ts
+       permission.ts
+       persistent-pty.ts
+       plugin.ts
+       project.ts
+       provider.ts
+       pty.ts
+       reference.ts
+       repository.ts
+       repository-cache.ts
+       ripgrep.ts
+       rpc.ts
+       schema.ts
+       session.ts
+       shell.ts
+       skill.ts
+       snapshot.ts
+       state.ts
+       tool.ts
+       tool-output.ts
+       variant.ts
+       vcs.ts
+       voice.ts
+       websearch.ts
+       wellknown.ts
+       workspace.ts
+       worktree.ts
+[D] test
+  [D] codemode
+  [D] config
+  [D] effect
+  [D] filesystem
+  [D] fixture
+  [D] fixtures
+  [D] github-copilot
+  [D] instructions
+  [D] lib
+  [D] modal
+  [D] plugin
+  [D] process
+  [D] pty
+  [D] shell-scan
+  [D] skill
+  [D] util
+       agent.test.ts
+       aisdk.test.ts
+       aisdk-native.test.ts
+       app.test.ts
+       browser-idle.test.ts
+       bus.test.ts
+       bus-session-routing.test.ts
+       catalog.test.ts
+       codemode.test.ts
+       command.test.ts
+       credential.test.ts
+       database.test.ts
+       database-drizzle.test.ts
+       database-migration.test.ts
+       effect-app-node-platform.test.ts
+       effect-simplification-types.test.ts
+       environment.test.ts
+       event-logger.test.ts
+       file-access.test.ts
+       file-access-path.test.ts
+       file-mutation.test.ts
+       form.test.ts
+       formatter.test.ts
+       generate.test.ts
+       git.test.ts
+       instance-vanilla.test.ts
+       instruction-discovery.test.ts
+       instruction-state.test.ts
+       integration.test.ts
+       job.test.ts
+       kv.test.ts
+       location.test.ts
+       location-activity.test.ts

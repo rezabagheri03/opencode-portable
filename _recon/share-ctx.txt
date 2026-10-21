@@ -1,0 +1,32 @@
+﻿--- 92..104 ---
+      : legacyUpdate === "notify"
+        ? "notify"
+        : legacyUpdate === true
+          ? "auto"
+          : undefined
+  const update = prefer(migratedUpdate, nativeUpdate, ["update"], diagnostics)
+  if (update !== undefined) encoded.update = update
+  if (legacyShare !== undefined) encoded.share = legacyShare
+
+  const legacyReferences = decodeMap(input.reference, ConfigReference.Entry, ["reference"], diagnostics, decodeEncoded)
+  const nativeReferences = decodeMap(
+    input.references,
+    ConfigReference.Entry,
+--- 200..216 ---
+
+  const model = own(input, "model")
+    ? decodeValue(ConfigModel.Selection, input.model, ["model"], diagnostics)
+    : undefined
+  if (model) encoded.model = { ...model, providerID: ConfigMigrateV1.providerID(model.providerID) }
+
+  const nativeAtomic = {
+    $schema: Info.fields.$schema,
+    shell: Info.fields.shell,
+    default_agent: Info.fields.default_agent,
+    share: Info.fields.share,
+    enterprise: Info.fields.enterprise,
+    username: Info.fields.username,
+    snapshots: Info.fields.snapshots,
+    media: Info.fields.media,
+    tool_output: Info.fields.tool_output,
+    websearch: Info.fields.websearch,

@@ -1,0 +1,96 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    # Pinned rather than ubuntu-latest: a runner image bump that changes the JDK or the NDK would
+    # otherwise silently change the artifact this project pins hashes for.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install SDK packages
+        run: sdkmanager --install "platforms;android-36" "build-tools;36.0.0" "ndk;30.0.14904198"
+
+      - name: Cache downloads
+        uses: actions/cache@v4
+        with:
+          # The engine is 198 MB; re-downloading it on every run is the slowest part of the build.
+          key: downloads-${{ hashFiles('tools/fetch_binaries.py', 'tools/rootfs/build.py') }}
+          path: |
+            .cache/binaries
+            .cache/rootfs
+
+      - name: Build
+        run: bash tools/build.sh
+
+      - name: Read build outputs
+        id: outputs
+        run: |
+          {
+            echo "sha256=$(sha256sum app/build/outputs/apk/debug/app-debug.apk | cut -d' ' -f1)"
+            echo "bytes=$(stat -c %s app/build/outputs/apk/debug/app-debug.apk)"
+            echo "rootfs=$(python3 -c "import json;print(json.load(open('dist/rootfs/MANIFEST.json'))['rootfs']['sha256'])")"
+            echo "engine=$(python3 -c "import json;print(json.load(open('dist/rootfs/MANIFEST.json'))['base']['sha256'])")"
+          } >> "$GITHUB_OUTPUT"
+
+      # The APK is ~121 MB, which exceeds what some artifact tooling handles comfortably, so the
+      # engine is trimmed from the upload: it is byte-identical to the pinned upstream tarball and
+      # re-fetched by every build. The rootfs and licenses are the outputs worth keeping.
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: opencode-portable-debug-${{ github.sha }}
+          path: app/build/outputs/apk/debug/app-debug.apk
+          compression-level: 0
+          retention-days: 14
+
+      - name: Upload rootfs and licenses
+        uses: actions/upload-artifact@v4
+        with:
+          name: rootfs-${{ github.sha }}
+          path: |
+            dist/rootfs/rootfs.tar.gz
+            dist/rootfs/MANIFEST.json
+            dist/rootfs/THIRD_PARTY_LICENSES.md
+          retention-days: 30
+
+      - name: Summary
+        run: |
+          {
+            echo "## Build"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| APK | \`${{ steps.outputs.outputs.bytes }}\` bytes |"
+            echo "| APK sha256 | \`${{ steps.outputs.outputs.sha256 }}\` |"
+            echo "| rootfs sha256 | \`${{ steps.outputs.outputs.rootfs }}\` |"
+            echo
+            echo "The engine binary is not uploaded: it is hash-checked against the pin in"
+            echo "docs/06-artifact-verification.md §1 on every build, so it is reproducible from npm."
+          } >> "$GITHUB_STEP_SUMMARY"

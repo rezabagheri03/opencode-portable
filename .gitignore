@@ -1,0 +1,29 @@
+# Build output
+build/
+app/build/
+.gradle/
+local.properties
+
+# Fetched native binaries. The engine is 198 MB — over GitHub's 100 MB per-file limit — so it is
+# fetched and hash-checked by tools/fetch_binaries.py rather than committed. The pin lives in
+# docs/06-artifact-verification.md §1.
+app/src/main/jniLibs/
+app/src/main/assets/proot-deps.dat
+
+# Generated rootfs. Rebuild with tools/build.sh; the pinned hash is dist/rootfs/MANIFEST.json.
+dist/
+.cache/
+app/src/main/assets/rootfs.dat
+
+# The reference copy of the engine and its npm tarball, used during the survey phase. Both are
+# fetched and hash-checked by tools/fetch_binaries.py now (198 MB and 97 MB, over GitHub's limit).
+_artifacts/musl/
+_artifacts/*.tgz
+
+# Read-only upstream reference clone
+opencode-src/
+
+# Spike scratch and downloaded reference material
+_p0/scratch/
+_p0/extract/
+_p0/downloads/

@@ -1,0 +1,660 @@
+﻿===== packages/desktop =====
+[D] icons
+  [D] beta
+    [D] android
+    [D] ios
+         128x128.png
+         128x128@2x.png
+         32x32.png
+         64x64.png
+         dock.png
+         icon.icns
+         icon.ico
+         icon.png
+         Square107x107Logo.png
+         Square142x142Logo.png
+         Square150x150Logo.png
+         Square284x284Logo.png
+         Square30x30Logo.png
+         Square310x310Logo.png
+         Square44x44Logo.png
+         Square71x71Logo.png
+         Square89x89Logo.png
+         StoreLogo.png
+  [D] dev
+    [D] android
+    [D] ios
+         128x128.png
+         128x128@2x.png
+         32x32.png
+         64x64.png
+         dock.png
+         icon.icns
+         icon.ico
+         icon.png
+         Square107x107Logo.png
+         Square142x142Logo.png
+         Square150x150Logo.png
+         Square284x284Logo.png
+         Square30x30Logo.png
+         Square310x310Logo.png
+         Square44x44Logo.png
+         Square71x71Logo.png
+         Square89x89Logo.png
+         StoreLogo.png
+  [D] prod
+    [D] android
+    [D] ios
+         128x128.png
+         128x128@2x.png
+         32x32.png
+         64x64.png
+         dock.png
+         icon.icns
+         icon.ico
+         icon.png
+         Square107x107Logo.png
+         Square142x142Logo.png
+         Square150x150Logo.png
+         Square284x284Logo.png
+         Square30x30Logo.png
+         Square310x310Logo.png
+         Square44x44Logo.png
+         Square71x71Logo.png
+         Square89x89Logo.png
+         StoreLogo.png
+       README.md
+[D] resources
+  [D] linux
+         opencode-desktop.desktop
+  [D] windows
+         installer.nsh
+       entitlements.cli.plist
+       entitlements.plist
+[D] scripts
+  [D] fixtures
+    [D] picker
+       bench-startup.ts
+       bench-variant.ps1
+       copy-bundles.ts
+       copy-icons.ts
+       copy-metainfo.ts
+       dev.ts
+       dev-electron.ts
+       migration.ts
+       picker.test.ts
+       picker.ts
+       prebuild.ts
+       prepare.ts
+       profile-by-source.ts
+       publish.ts
+       utils.ts
+       windows-installer.test.ts
+[D] src
+  [D] main
+    [D] extension
+    [D] files
+    [D] ipc-handlers
+    [D] lifecycle
+    [D] native
+    [D] service
+    [D] storage
+    [D] windows
+         constants.ts
+         desktop.ts
+         env.d.ts
+         index.ts
+         ipc.ts
+         ipc-events.ts
+         ipc-transport.test.ts
+         ipc-transport.ts
+         paths.ts
+  [D] preload
+         index.ts
+         types.ts
+  [D] renderer
+    [D] onboarding
+    [D] platform
+    [D] startup
+    [D] window
+         api.ts
+         api-types.ts
+         desktop-app.tsx
+         diagnostics.ts
+         env.d.ts
+         extensions.ts
+         html.test.ts
+         index.html
+         index.tsx
+         ipc-client.ts
+         migration-status.tsx
+         styles.css
+  [D] shared
+    [D] ipc-rpc
+         ipc-contract.ts
+         ipc-rpc.ts
+         ipc-transport.ts
+         window-bootstrap.test.ts
+         window-bootstrap.ts
+     .gitignore
+     AGENTS.md
+     drizzle.config.ts
+     electron.vite.config.test.ts
+     electron.vite.config.ts
+     electron-builder.config.test.ts
+     electron-builder.config.ts
+     package.json
+     README.md
+     sst-env.d.ts
+     tsconfig.json
+
+===== packages/desktop/package.json =====
+{
+  "name": "@opencode/desktop",
+  "private": true,
+  "version": "2.1.1",
+  "type": "module",
+  "license": "MIT",
+  "homepage": "https://opencode.ai",
+  "author": {
+    "name": "OpenCode",
+    "email": "hello@opencode.ai"
+  },
+  "scripts": {
+    "typecheck": "tsc -b",
+    "test": "bun test --timeout 30000",
+    "dev": "bun ./scripts/dev.ts",
+    "migration": "bun ./scripts/migration.ts",
+    "prebuild": "bun ./scripts/prebuild.ts",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "package": "electron-builder --config electron-builder.config.ts",
+    "package:mac": "electron-builder --mac --config electron-builder.config.ts",
+    "package:win": "electron-builder --win --config electron-builder.config.ts",
+    "package:linux": "electron-builder --linux --config electron-builder.config.ts",
+    "bench:startup": "bun ./scripts/bench-startup.ts"
+  },
+  "main": "./out/main/index.js",
+  "dependencies": {
+    "@zip.js/zip.js": "2.7.62",
+    "electron-context-menu": "5.0.0",
+    "electron-log": "^5",
+    "electron-updater": "6.8.9",
+    "lighthouse": "13.4.1"
+  },
+  "devDependencies": {
+    "@brendonovich/vite-plugin-opencode": "0.1.3",
+    "@effect/platform-node": "catalog:",
+    "@lydell/node-pty": "catalog:",
+    "@opencode/app": "workspace:*",
+    "@opencode/gui-extensions": "workspace:*",
+    "@opencode/client": "workspace:*",
+    "@opencode/schema": "workspace:*",
+    "@opencode/ui": "workspace:*",
+    "@sentry/solid": "catalog:",
+    "@sentry/vite-plugin": "catalog:",
+    "@solidjs/router": "catalog:",
+    "@types/bun": "catalog:",
+    "@types/node": "catalog:",
+    "@typescript/native": "catalog:",
+    "app-builder-lib": "26.15.7",
+    "drizzle-kit": "catalog:",
+    "drizzle-orm": "catalog:",
+    "effect": "catalog:",
+    "electron": "44.4.5",
+    "electron-builder": "26.15.7",
+    "electron-vite": "6.0.0-beta.1",
+    "magic-string": "0.30.21",
+    "solid-js": "catalog:",
+    "typescript": "catalog:",
+    "vite": "8.2.2"
+  },
+  "optionalDependencies": {
+    "@lydell/node-pty-darwin-arm64": "1.2.0-beta.12",
+    "@lydell/node-pty-darwin-x64": "1.2.0-beta.12",
+    "@lydell/node-pty-linux-arm64": "1.2.0-beta.12",
+    "@lydell/node-pty-linux-x64": "1.2.0-beta.12",
+    "@lydell/node-pty-win32-arm64": "1.2.0-beta.12",
+    "@lydell/node-pty-win32-x64": "1.2.0-beta.12"
+  }
+}
+
+
+===== packages/core (depth 1) =====
+[D] script
+       benchmark-location.ts
+       benchmark-location-memory.ts
+       benchmark-snapshot.ts
+       benchmark-snapshot-pack.ts
+       benchmark-snapshot-session.ts
+       benchmark-snapshot-worker.ts
+       build.ts
+       fix-node-pty.ts
+       migration.ts
+       publish.ts
+       snapshot-parity.ts
+       snapshot-parity-compare.ts
+       snapshot-parity-run.sh
+       test.ts
+       update-models-snapshot.ts
+       wellknown-server.ts
+[D] src
+  [D] account
+  [D] codemode
+  [D] config
+  [D] credential
+  [D] database
+  [D] effect
+  [D] environment
+  [D] event
+  [D] filesystem
+  [D] formatter
+  [D] github-copilot
+  [D] image
+  [D] instance
+  [D] instructions
+  [D] integration
+  [D] kv
+  [D] mcp
+  [D] modal
+  [D] models-dev
+  [D] oauth
+  [D] permission
+  [D] persistent-pty
+  [D] plugin
+  [D] project
+  [D] pty
+  [D] reference
+  [D] ripgrep
+  [D] session
+  [D] shell
+  [D] skill
+  [D] tool
+  [D] util
+  [D] v1
+  [D] vcs
+  [D] wellknown
+  [D] workspace
+  [D] worktree
+       agent.ts
+       aisdk.ts
+       aisdk-native.ts
+       app.ts
+       bus.ts
+       command.ts
+       config.ts
+       credential.ts
+       event-logger.ts
+       file-access.ts
+       file-mutation.ts
+       file-retention.ts
+       filesystem.ts
+       form.ts
+       formatter.ts
+       generate.ts
+       git.ts
+       image.ts
+       instance.ts
+       instruction-discovery.ts
+       integration.ts
+       job.ts
+       kv.ts
+       location.ts
+       location-activity.ts
+       location-lifecycle.ts
+       location-service-map.ts
+       location-services.ts
+       managed-policy.ts
+       markdown.d.ts
+       mime.ts
+       model.ts
+       model-resolver.ts
+       model-retry.ts
+       models-dev.ts
+       node-ffi.d.ts
+       permission.ts
+       persistent-pty.ts
+       plugin.ts
+       project.ts
+       provider.ts
+       pty.ts
+       reference.ts
+       repository.ts
+       repository-cache.ts
+       ripgrep.ts
+       rpc.ts
+       schema.ts
+       session.ts
+       shell.ts
+       skill.ts
+       snapshot.ts
+       state.ts
+       tool.ts
+       tool-output.ts
+       variant.ts
+       vcs.ts
+       voice.ts
+       websearch.ts
+       wellknown.ts
+       workspace.ts
+       worktree.ts
+[D] test
+  [D] codemode
+  [D] config
+  [D] effect
+  [D] filesystem
+  [D] fixture
+  [D] fixtures
+  [D] github-copilot
+  [D] instructions
+  [D] lib
+  [D] modal
+  [D] plugin
+  [D] process
+  [D] pty
+  [D] shell-scan
+  [D] skill
+  [D] util
+       agent.test.ts
+       aisdk.test.ts
+       aisdk-native.test.ts
+       app.test.ts
+       browser-idle.test.ts
+       bus.test.ts
+       bus-session-routing.test.ts
+       catalog.test.ts
+       codemode.test.ts
+       command.test.ts
+       credential.test.ts
+       database.test.ts
+       database-drizzle.test.ts
+       database-migration.test.ts
+       effect-app-node-platform.test.ts
+       effect-simplification-types.test.ts
+       environment.test.ts
+       event-logger.test.ts
+       file-access.test.ts
+       file-access-path.test.ts
+       file-mutation.test.ts
+       form.test.ts
+       formatter.test.ts
+       generate.test.ts
+       git.test.ts
+       instance-vanilla.test.ts
+       instruction-discovery.test.ts
+       instruction-state.test.ts
+       integration.test.ts
+       job.test.ts
+       kv.test.ts
+       location.test.ts
+       location-activity.test.ts
+       location-filesystem.test.ts
+       location-layer.test.ts
+       logging.test.ts
+       mcp.test.ts
+       mcp-import-boundary.test.ts
+       mcp-instructions.test.ts
+       mcp-oauth.test.ts
+       model.test.ts
+       model-plugins.test.ts
+       model-resolver.test.ts
+       models.test.ts
+       network-guard.test.ts
+       npm.test.ts
+       npm-config.test.ts
+       oauth-page.test.ts
+       patch.test.ts
+       permission.test.ts
+       persistent-pty-daemon.test.ts
+       plugin.test.ts
+       plugin-failure.test.ts
+       preload.test.ts
+       preload.ts
+       project.test.ts
+       provider.test.ts
+       reference.test.ts
+       reference-instructions.test.ts
+       repository.test.ts
+       repository-cache.test.ts
+       ripgrep.test.ts
+       rpc-handler-errors.test.ts
+       session-activation.test.ts
+       session-archive.test.ts
+       session-checkpoint-transport.test.ts
+       session-compact.test.ts
+       session-compaction.test.ts
+       session-compaction-transport.test.ts
+       session-create.test.ts
+       session-diff.test.ts
+       session-environment.test.ts
+       session-error.test.ts
+       session-execution.test.ts
+       session-generate.test.ts
+       session-instructions.test.ts
+       session-list.test.ts
+       session-log.test.ts
+       session-model-request.test.ts
+       session-model-request-hooks.test.ts
+       session-model-transport.test.ts
+       session-model-transport-live.test.ts
+       session-move.test.ts
+       session-native.test.ts
+       session-native-compaction.test.ts
+       session-owned.test.ts
+       session-projector.test.ts
+       session-prompt.test.ts
+       session-remove.test.ts
+       session-revert.test.ts
+       session-run-coordinator.test.ts
+       session-runner.test.ts
+       session-runner-message.test.ts
+       session-runner-recorded.test.ts
+       session-runner-retry.test.ts
+       session-runner-tool-events.test.ts
+       session-shell.test.ts
+       session-skill.test.ts
+       session-sql.types.ts
+       session-stats.test.ts
+       session-step.test.ts
+       session-store.test.ts
+       session-system-prompt.test.ts
+       session-title.test.ts
+       session-tool-progress.test.ts
+       session-view.test.ts
+       session-wait.test.ts
+       shared-schema.test.ts
+       shell.test.ts
+       shell-cleanup.test.ts
+       shell-parse.test.ts
+       shell-parse-compatibility.test.ts
+       shell-parse-parity.test.ts
+       shell-parse-syntax.test.ts
+       shell-retention.test.ts
+       skill.test.ts
+       skill-discovery.test.ts
+       snapshot.test.ts
+       sqlite-bundle.test.ts
+       sqlite-workerd.test.ts
+       state.test.ts
+       state-group.test.ts
+       state-replay.test.ts
+       subagent-lifetime.test.ts
+       tool-edit.test.ts
+       tool-execute.test.ts
+       tool-html-markdown-budget.test.ts
+       tool-opencode.test.ts
+       tool-output.test.ts
+       tool-patch.test.ts
+       tool-question.test.ts
+       tool-read.test.ts
+       tool-read-filesystem.test.ts
+       tool-registry.test.ts
+       tool-schema.test.ts
+       tool-search.test.ts
+       tool-shell.test.ts
+       tool-skill.test.ts
+       tool-subagent.test.ts
+       tool-todo.test.ts
+       tool-webfetch.test.ts
+       tool-websearch.test.ts
+       tool-write.test.ts
+       v1-migration.test.ts
+       variant.test.ts
+       vcs.test.ts
+       vcs-hg.test.ts
+       voice.test.ts
+       websearch.test.ts
+       wellknown.test.ts
+       workspace.test.ts
+       worktree.test.ts
+     bunfig.toml
+     drizzle.config.ts
+     package.json
+     README.md
+     schema.json
+     sst-env.d.ts
+     tsconfig.build.json
+     tsconfig.json
+     tsconfig.tests.json
+
+===== packages/core/package.json =====
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "version": "2.1.1",
+  "name": "@opencode/core",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/anomalyco/opencode.git",
+    "directory": "packages/core"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "db": "bun drizzle-kit",
+    "migration": "bun run script/migration.ts",
+    "fix-node-pty": "bun run script/fix-node-pty.ts",
+    "benchmark:location": "bun run script/benchmark-location.ts",
+    "benchmark:location-memory": "bun run script/benchmark-location-memory.ts",
+    "build": "bun run script/build.ts",
+    "update-models-snapshot": "bun run script/update-models-snapshot.ts",
+    "test": "bun run script/test.ts",
+    "typecheck": "tsc -b tsconfig.json tsconfig.tests.json"
+  },
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "imports": {
+    "#sqlite": {
+      "workerd": "./src/database/sqlite.workerd.ts",
+      "bun": "./src/database/sqlite.bun.ts",
+      "node": "./src/database/sqlite.node.ts",
+      "default": "./src/database/sqlite.node.ts"
+    },
+    "#pty": {
+      "workerd": "./src/pty/pty.workerd.ts",
+      "bun": "./src/pty/pty.bun.ts",
+      "node": "./src/pty/pty.node.ts",
+      "default": "./src/pty/pty.bun.ts"
+    },
+    "#persistent-pty-binary": {
+      "workerd": "./src/persistent-pty/binary.workerd.ts",
+      "bun": "./src/persistent-pty/binary.bun.ts",
+      "node": "./src/persistent-pty/binary.node.ts",
+      "default": "./src/persistent-pty/binary.bun.ts"
+    },
+    "#fff": {
+      "workerd": "./src/filesystem/fff.workerd.ts",
+      "bun": "./src/filesystem/fff.bun.ts",
+      "node": "./src/filesystem/fff.node.ts",
+      "default": "./src/filesystem/fff.bun.ts"
+    },
+    "#photon-wasm": {
+      "workerd": "./src/image/photon-wasm.workerd.ts",
+      "bun": "./src/image/photon-wasm.bun.ts",
+      "node": "./src/image/photon-wasm.node.ts",
+      "default": "./src/image/photon-wasm.bun.ts"
+    },
+    "#shell-parser-wasm": {
+      "workerd": "./src/shell/parser-wasm.workerd.ts",
+      "bun": "./src/shell/parser-wasm.bun.ts",
+      "node": "./src/shell/parser-wasm.node.ts",
+      "default": "./src/shell/parser-wasm.bun.ts"
+    },
+    "#v1-migration": {
+      "types": "./src/database/v1-migration.bun.ts",
+      "bun": "./src/database/v1-migration.bun.ts",
+      "node": "./src/database/v1-migration.noop.ts",
+      "workerd": "./src/database/v1-migration.noop.ts",
+      "default": "./src/database/v1-migration.noop.ts"
+    }
+  },
+  "devDependencies": {
+    "@ai-sdk/openai-compatible": "2.0.41",
+    "@effect/platform-node": "catalog:",
+    "@effect/sql-sqlite-bun": "catalog:",
+    "@modelcontextprotocol/server": "2.0.0",
+    "@opencode/http-recorder": "workspace:*",
+    "@parcel/watcher-darwin-arm64": "2.5.1",
+    "@parcel/watcher-darwin-x64": "2.5.1",
+    "@parcel/watcher-linux-arm64-glibc": "2.5.1",
+    "@parcel/watcher-linux-arm64-musl": "2.5.1",
+    "@parcel/watcher-linux-x64-glibc": "2.5.1",
+    "@parcel/watcher-linux-x64-musl": "2.5.1",
+    "@parcel/watcher-win32-arm64": "2.5.1",
+    "@parcel/watcher-win32-x64": "2.5.1",
+    "@tsconfig/bun": "catalog:",
+    "@types/bun": "catalog:",
+    "@types/node": "catalog:",
+    "@types/which": "3.0.4",
+    "drizzle-kit": "catalog:",
+    "fast-check": "catalog:"
+  },
+  "dependencies": {
+    "@ai-sdk/cohere": "3.0.27",
+    "@ai-sdk/perplexity": "3.0.26",
+    "@ai-sdk/provider": "3.0.8",
+    "@ai-sdk/provider-utils": "4.0.23",
+    "@ai-sdk/vercel": "2.0.39",
+    "@ff-labs/fff-bun": "0.10.5",
+    "@ff-labs/fff-node": "0.10.5",
+    "@lydell/node-pty": "catalog:",
+    "@modelcontextprotocol/client": "2.0.0",
+    "@modelcontextprotocol/core": "2.0.0",
+    "@opencode-ai/pty": "0.3.1",
+    "@opencode/ai": "workspace:*",
+    "@opencode/codemode": "workspace:*",
+    "@opencode/plugin": "workspace:*",
+    "@opencode/plugin-browser": "workspace:*",
+    "@opencode/schema": "workspace:*",
+    "@opencode/util": "workspace:*",
+    "@parcel/watcher": "2.5.1",
+    "@silvia-odwyer/photon-node": "0.3.4",
+    "@standard-schema/spec": "catalog:",
+    "bun-pty": "0.4.11",
+    "diff": "catalog:",
+    "drizzle-orm": "catalog:",
+    "effect": "catalog:",
+    "fuzzysort": "3.1.0",
+    "gitlab-ai-provider": "6.19.0",
+    "gray-matter": "4.0.3",
+    "htmlparser2": "8.0.2",
+    "http-proxy-agent": "7.0.2",
+    "https-proxy-agent": "7.0.6",
+    "immer": "11.1.4",
+    "jose": "6.0.11",
+    "jsonc-parser": "3.3.1",
+    "mime-types": "3.0.2",
+    "tree-sitter-bash": "0.25.0",
+    "tree-sitter-powershell": "0.25.10",
+    "web-tree-sitter": "0.25.10",
+    "which": "6.0.1",
+    "zod": "catalog:"
+  }
+}
+

@@ -1,0 +1,152 @@
+﻿[
+    {
+        "name":  "v18.20.4",
+        "zipball_url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/zipball/refs/tags/v18.20.4",
+        "tarball_url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/tarball/refs/tags/v18.20.4",
+        "commit":  {
+                       "sha":  "959b6e8637c86fb1f63f1aaf72adc86c7e8c335d",
+                       "url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/commits/959b6e8637c86fb1f63f1aaf72adc86c7e8c335d"
+                   },
+        "node_id":  "REF_kwDOGLfh2LJyZWZzL3RhZ3MvdjE4LjIwLjQ"
+    },
+    {
+        "name":  "v18.17.3",
+        "zipball_url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/zipball/refs/tags/v18.17.3",
+        "tarball_url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/tarball/refs/tags/v18.17.3",
+        "commit":  {
+                       "sha":  "0ffa9832b973d18be5febaf68560eaec18b8c3ff",
+                       "url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/commits/0ffa9832b973d18be5febaf68560eaec18b8c3ff"
+                   },
+        "node_id":  "REF_kwDOGLfh2LJyZWZzL3RhZ3MvdjE4LjE3LjM"
+    },
+    {
+        "name":  "v18.17.2",
+        "zipball_url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/zipball/refs/tags/v18.17.2",
+        "tarball_url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/tarball/refs/tags/v18.17.2",
+        "commit":  {
+                       "sha":  "1b0223dc74dfa359e61131ee24e0fa386c6d12aa",
+                       "url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/commits/1b0223dc74dfa359e61131ee24e0fa386c6d12aa"
+                   },
+        "node_id":  "REF_kwDOGLfh2LJyZWZzL3RhZ3MvdjE4LjE3LjI"
+    },
+    {
+        "name":  "v18.17.1",
+        "zipball_url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/zipball/refs/tags/v18.17.1",
+        "tarball_url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/tarball/refs/tags/v18.17.1",
+        "commit":  {
+                       "sha":  "ea92c2eb984ed63e0679b9d1c278f861a4dc35e4",
+                       "url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/commits/ea92c2eb984ed63e0679b9d1c278f861a4dc35e4"
+                   },
+        "node_id":  "REF_kwDOGLfh2LJyZWZzL3RhZ3MvdjE4LjE3LjE"
+    },
+    {
+        "name":  "v18.10.0",
+        "zipball_url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/zipball/refs/tags/v18.10.0",
+        "tarball_url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/tarball/refs/tags/v18.10.0",
+        "commit":  {
+                       "sha":  "bdf069ba0f6ee63056628af20d95cd82ca5ea736",
+                       "url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/commits/bdf069ba0f6ee63056628af20d95cd82ca5ea736"
+                   },
+        "node_id":  "REF_kwDOGLfh2LJyZWZzL3RhZ3MvdjE4LjEwLjA"
+    },
+    {
+        "name":  "v18.9.1",
+        "zipball_url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/zipball/refs/tags/v18.9.1",
+        "tarball_url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/tarball/refs/tags/v18.9.1",
+        "commit":  {
+                       "sha":  "df3ed1e89299e4c8f006fc20e22265a889c97919",
+                       "url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/commits/df3ed1e89299e4c8f006fc20e22265a889c97919"
+                   },
+        "node_id":  "REF_kwDOGLfh2LFyZWZzL3RhZ3MvdjE4LjkuMQ"
+    },
+    {
+        "name":  "v18.9.0",
+        "zipball_url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/zipball/refs/tags/v18.9.0",
+        "tarball_url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/tarball/refs/tags/v18.9.0",
+        "commit":  {
+                       "sha":  "9ae2af4aaebe5c6efad774989c4958ba6d32c0fd",
+                       "url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/commits/9ae2af4aaebe5c6efad774989c4958ba6d32c0fd"
+                   },
+        "node_id":  "REF_kwDOGLfh2LFyZWZzL3RhZ3MvdjE4LjkuMA"
+    },
+    {
+        "name":  "v18.8.0",
+        "zipball_url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/zipball/refs/tags/v18.8.0",
+        "tarball_url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/tarball/refs/tags/v18.8.0",
+        "commit":  {
+                       "sha":  "c200106305f4367ba9ad8987af5139979c6cc40c",
+                       "url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/commits/c200106305f4367ba9ad8987af5139979c6cc40c"
+                   },
+        "node_id":  "REF_kwDOGLfh2LFyZWZzL3RhZ3MvdjE4LjguMA"
+    },
+    {
+        "name":  "v18.7.0",
+        "zipball_url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/zipball/refs/tags/v18.7.0",
+        "tarball_url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/tarball/refs/tags/v18.7.0",
+        "commit":  {
+                       "sha":  "75b68c6e4db515f76df73af476eccf382bbcb00a",
+                       "url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/commits/75b68c6e4db515f76df73af476eccf382bbcb00a"
+                   },
+        "node_id":  "REF_kwDOGLfh2LFyZWZzL3RhZ3MvdjE4LjcuMA"
+    },
+    {
+        "name":  "v18.6.0",
+        "zipball_url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/zipball/refs/tags/v18.6.0",
+        "tarball_url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/tarball/refs/tags/v18.6.0",
+        "commit":  {
+                       "sha":  "cd171576b2d1376dae3eb371b6da5ccf04dc4a85",
+                       "url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/commits/cd171576b2d1376dae3eb371b6da5ccf04dc4a85"
+                   },
+        "node_id":  "REF_kwDOGLfh2LFyZWZzL3RhZ3MvdjE4LjYuMA"
+    },
+    {
+        "name":  "v18.5.0",
+        "zipball_url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/zipball/refs/tags/v18.5.0",
+        "tarball_url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/tarball/refs/tags/v18.5.0",
+        "commit":  {
+                       "sha":  "0a18e136b4a1e860bb2befcbd1f78661ed5fb5e7",
+                       "url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/commits/0a18e136b4a1e860bb2befcbd1f78661ed5fb5e7"
+                   },
+        "node_id":  "REF_kwDOGLfh2LFyZWZzL3RhZ3MvdjE4LjUuMA"
+    },
+    {
+        "name":  "v18.4.0",
+        "zipball_url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/zipball/refs/tags/v18.4.0",
+        "tarball_url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/tarball/refs/tags/v18.4.0",
+        "commit":  {
+                       "sha":  "e339e9c5d71b72fd09e6abd38b10678e0c592ae7",
+                       "url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/commits/e339e9c5d71b72fd09e6abd38b10678e0c592ae7"
+                   },
+        "node_id":  "REF_kwDOGLfh2LFyZWZzL3RhZ3MvdjE4LjQuMA"
+    },
+    {
+        "name":  "v18.3.0",
+        "zipball_url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/zipball/refs/tags/v18.3.0",
+        "tarball_url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/tarball/refs/tags/v18.3.0",
+        "commit":  {
+                       "sha":  "49362efd5b39f31a14260612422109e130068d08",
+                       "url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/commits/49362efd5b39f31a14260612422109e130068d08"
+                   },
+        "node_id":  "REF_kwDOGLfh2LFyZWZzL3RhZ3MvdjE4LjMuMA"
+    },
+    {
+        "name":  "v18.2.0",
+        "zipball_url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/zipball/refs/tags/v18.2.0",
+        "tarball_url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/tarball/refs/tags/v18.2.0",
+        "commit":  {
+                       "sha":  "1531ef1c0c30b35b764981683383187261c97779",
+                       "url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/commits/1531ef1c0c30b35b764981683383187261c97779"
+                   },
+        "node_id":  "REF_kwDOGLfh2LFyZWZzL3RhZ3MvdjE4LjIuMA"
+    },
+    {
+        "name":  "v18.1.0",
+        "zipball_url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/zipball/refs/tags/v18.1.0",
+        "tarball_url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/tarball/refs/tags/v18.1.0",
+        "commit":  {
+                       "sha":  "f35f8a6d75c2d2b2f6b75ee0631c21097f4d9e8e",
+                       "url":  "https://api.github.com/repos/nodejs-mobile/nodejs-mobile/commits/f35f8a6d75c2d2b2f6b75ee0631c21097f4d9e8e"
+                   },
+        "node_id":  "REF_kwDOGLfh2LFyZWZzL3RhZ3MvdjE4LjEuMA"
+    }
+]

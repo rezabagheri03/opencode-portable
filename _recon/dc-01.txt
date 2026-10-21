@@ -1,0 +1,130 @@
+﻿===== packages/desktop =====
+[D] icons
+  [D] beta
+    [D] android
+    [D] ios
+         128x128.png
+         128x128@2x.png
+         32x32.png
+         64x64.png
+         dock.png
+         icon.icns
+         icon.ico
+         icon.png
+         Square107x107Logo.png
+         Square142x142Logo.png
+         Square150x150Logo.png
+         Square284x284Logo.png
+         Square30x30Logo.png
+         Square310x310Logo.png
+         Square44x44Logo.png
+         Square71x71Logo.png
+         Square89x89Logo.png
+         StoreLogo.png
+  [D] dev
+    [D] android
+    [D] ios
+         128x128.png
+         128x128@2x.png
+         32x32.png
+         64x64.png
+         dock.png
+         icon.icns
+         icon.ico
+         icon.png
+         Square107x107Logo.png
+         Square142x142Logo.png
+         Square150x150Logo.png
+         Square284x284Logo.png
+         Square30x30Logo.png
+         Square310x310Logo.png
+         Square44x44Logo.png
+         Square71x71Logo.png
+         Square89x89Logo.png
+         StoreLogo.png
+  [D] prod
+    [D] android
+    [D] ios
+         128x128.png
+         128x128@2x.png
+         32x32.png
+         64x64.png
+         dock.png
+         icon.icns
+         icon.ico
+         icon.png
+         Square107x107Logo.png
+         Square142x142Logo.png
+         Square150x150Logo.png
+         Square284x284Logo.png
+         Square30x30Logo.png
+         Square310x310Logo.png
+         Square44x44Logo.png
+         Square71x71Logo.png
+         Square89x89Logo.png
+         StoreLogo.png
+       README.md
+[D] resources
+  [D] linux
+         opencode-desktop.desktop
+  [D] windows
+         installer.nsh
+       entitlements.cli.plist
+       entitlements.plist
+[D] scripts
+  [D] fixtures
+    [D] picker
+       bench-startup.ts
+       bench-variant.ps1
+       copy-bundles.ts
+       copy-icons.ts
+       copy-metainfo.ts
+       dev.ts
+       dev-electron.ts
+       migration.ts
+       picker.test.ts
+       picker.ts
+       prebuild.ts
+       prepare.ts
+       profile-by-source.ts
+       publish.ts
+       utils.ts
+       windows-installer.test.ts
+[D] src
+  [D] main
+    [D] extension
+    [D] files
+    [D] ipc-handlers
+    [D] lifecycle
+    [D] native
+    [D] service
+    [D] storage
+    [D] windows
+         constants.ts
+         desktop.ts
+         env.d.ts
+         index.ts
+         ipc.ts
+         ipc-events.ts
+         ipc-transport.test.ts
+         ipc-transport.ts
+         paths.ts
+  [D] preload
+         index.ts
+         types.ts
+  [D] renderer
+    [D] onboarding
+    [D] platform
+    [D] startup
+    [D] window
+         api.ts
+         api-types.ts
+         desktop-app.tsx
+         diagnostics.ts
+         env.d.ts
+         extensions.ts
+         html.test.ts
+         index.html
+         index.tsx
+         ipc-client.ts
+         migration-status.tsx
