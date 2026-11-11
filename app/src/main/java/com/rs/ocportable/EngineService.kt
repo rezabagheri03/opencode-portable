@@ -4,7 +4,9 @@ import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.os.PowerManager
 
 /**
@@ -13,10 +15,14 @@ import android.os.PowerManager
  * `specialUse` is the only FGS type that honestly fits a local agent server and is not time-capped.
  * The wake lock keeps the CPU from sleeping mid-task; it is released when the service stops.
  */
-class EngineService : Service() {
+class EngineService : Service(), EngineController.StatusListener {
 
     private lateinit var controller: EngineController
     private var wakeLock: PowerManager.WakeLock? = null
+    private val main = Handler(Looper.getMainLooper())
+    private val releaseWakeLock = Runnable {
+        wakeLock?.let { if (it.isHeld) it.release() }
+    }
     private val binder = LocalBinder()
 
     inner class LocalBinder : android.os.Binder() {
@@ -33,6 +39,7 @@ class EngineService : Service() {
             acquire()
         }
         controller = EngineController(this) { state -> updateNotification(state) }
+        controller.addStatusListener(this)
         controller.start()
     }
 
@@ -66,8 +73,14 @@ class EngineService : Service() {
 
     override fun onBind(intent: Intent?): IBinder = binder
 
+    override fun onStatus(status: StatusTracker.AgentStatus) {
+        if (status.phase == StatusTracker.Phase.IDLE) scheduleWakeLockRelease() else acquireWakeLock()
+    }
+
     override fun onDestroy() {
-        controller.stop()
+        controller.removeStatusListener(this)
+        main.removeCallbacks(releaseWakeLock)
+        controller.stopNow()
         wakeLock?.let { if (it.isHeld) it.release() }
         wakeLock = null
         super.onDestroy()
@@ -78,7 +91,9 @@ class EngineService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startForeground(Notifier.ENGINE_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         } else {
-            startForeground(Notifier.ENGINE_ID, notification)
+            // specialUse does not exist before API 34. dataSync is not time-capped on API 33 (the
+            // target phone); on API 35+ this branch is unreachable.
+            startForeground(Notifier.ENGINE_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
         }
     }
 
@@ -91,11 +106,26 @@ class EngineService : Service() {
             is EngineController.State.Failed -> state.message.lineSequence().firstOrNull() ?: "failed"
         }
         Notifier.updateEngine(this, text)
+        when (state) {
+            is EngineController.State.Idle, is EngineController.State.Failed -> scheduleWakeLockRelease()
+            else -> acquireWakeLock()
+        }
+    }
+
+    private fun acquireWakeLock() {
+        main.removeCallbacks(releaseWakeLock)
+        wakeLock?.let { if (!it.isHeld) it.acquire() }
+    }
+
+    private fun scheduleWakeLockRelease() {
+        main.removeCallbacks(releaseWakeLock)
+        main.postDelayed(releaseWakeLock, WAKE_LOCK_IDLE_MS)
     }
 
     companion object {
         const val ACTION_STOP = "com.rs.ocportable.STOP"
         const val ACTION_DENY = "com.rs.ocportable.DENY"
         const val ACTION_RESTART = "com.rs.ocportable.RESTART"
+        private const val WAKE_LOCK_IDLE_MS = 5 * 60 * 1000L
     }
 }

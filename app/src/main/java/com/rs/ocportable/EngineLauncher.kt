@@ -31,6 +31,8 @@ object EngineLauncher {
         val home = File(filesDir, "home")
         val workspace = File(filesDir, "workspace")
         val guestEngineDir = File(rootfs, "usr/local/bin")
+        val guestEngine = File(rootfs, "usr/local/bin/opencode")
+        val guestWorkspace = File(rootfs, "workspace")
     }
 
     /**
@@ -51,6 +53,7 @@ object EngineLauncher {
             add(L.proot.absolutePath)
             add("-0")
             add("--link2symlink")
+            add("--kill-on-exit")
             add("-r"); add(L.rootfs.absolutePath)
             add("-w"); add(GUEST_WORKSPACE)
             binds.forEach { (host, guest) -> add("-b"); add("$host:$guest") }
@@ -85,7 +88,9 @@ object EngineLauncher {
     )
 
     fun start(L: Layout, dnsServers: List<String>, password: String): Process {
-        listOf(L.tmp, L.home, L.workspace, L.prootLibs, L.guestEngineDir).forEach { it.mkdirs() }
+        listOf(L.tmp, L.home, L.workspace, L.prootLibs, L.guestEngineDir, L.guestWorkspace).forEach { it.mkdirs() }
+        // proot bind targets exist as placeholders; the host paths replace them.
+        if (!L.guestEngine.exists()) L.guestEngine.createNewFile()
         // Empty DNS means "leave the image's default"; writing an empty file would remove it.
         if (dnsServers.any { it.isNotBlank() }) {
             L.resolvConf.parentFile?.mkdirs()

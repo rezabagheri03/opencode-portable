@@ -14,6 +14,12 @@ class EngineLauncherTest {
     fun prootIsTheExecutable() = assertTrue(cmd[0].endsWith("libproot.so"))
 
     @Test
+    fun prootCleansUpItsTracees() {
+        assertTrue("--kill-on-exit" in cmd)
+        assertTrue("--link2symlink" in cmd)
+    }
+
+    @Test
     fun serveFlagsArePresent() {
         assertTrue(cmd.toString(), cmd.containsAll(listOf("serve", "--hostname", "127.0.0.1", "--port", "4096")))
     }

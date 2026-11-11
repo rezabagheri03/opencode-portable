@@ -19,7 +19,7 @@ The work, in order. Every task has an acceptance criterion, because "done" that 
 
 ## Current state (2026-11-11)
 
-The code path is complete through P1/P2/P3 except for the pieces that require a device. **P0 is still 0/8 and is still the gate.** The known code blockers from the first code review (no launcher activity, the guest-symlink check, the `env -u` bug, missing proot deps/engine staging) are fixed. Unit tests are green (43 tests, 1 POSIX-only skip), both APKs assemble, and CI run `43075957178` is green. See [_p0/LOG.md](_p0/LOG.md) for the pass notes.
+The code path is complete through P1/P2/P3 except for the pieces that require a device. **P0 is still 0/8 and is still the gate.** The known code blockers from the first code review (no launcher activity, the guest-symlink check, the `env -u` bug, missing proot deps/engine staging) are fixed. Unit tests are green (43 tests, 1 POSIX-only skip), both APKs assemble, and CI run `43076771989` is green. See [_p0/LOG.md](_p0/LOG.md) for the pass notes.
 
 ---
 

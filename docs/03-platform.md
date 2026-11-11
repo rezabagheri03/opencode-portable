@@ -16,7 +16,7 @@ Android is not hostile to this design; it is indifferent to it. Each obstacle be
 Two consequences of the S20 FE's Android 13 + 4 KB pages:
 
 - **The 16 KB alignment requirement does not apply to you.** It is a Play Store submission rule for Android 15+ hardware; it never blocks installation on this phone. It becomes real only if you later publish.
-- Android 13 supports everything in this design, including `specialUse` foreground services.
+- Android 13 supports everything in this design. The foreground service uses `specialUse` on Android 14+ and the `dataSync` fallback on Android 13, where it is not time-capped.
 
 Minimum supported: `minSdk` 31 (Android 12). Target `targetSdk` 36 for the sideload build — high enough for modern behaviour, low enough to avoid the FGS and page-size pressure that only matters for distribution.
 
@@ -87,19 +87,22 @@ Do **not** use `android:usesCleartextTraffic="true"` — it is a blunt instrumen
 
 **What Android does.** A long-running local server must live in a foreground service. The type is not cosmetic:
 
-- `dataSync` is capped at **6 hours per 24 hours** for apps at targetSdk ≥35.
-- `specialUse` is not time-capped, but requires a declared subtype.
+- `dataSync` is capped at **6 hours per 24 hours** for apps at targetSdk ≥35, and on Android 15+.
+- `specialUse` is not time-capped, but exists only from **API 34** and requires a declared subtype.
 - `BOOT_COMPLETED` cannot start a `dataSync` FGS.
 
-**The fix.** `specialUse` with an honest subtype string:
+**The fix.** Declare `specialUse|dataSync`; the service passes `specialUse` on API 34+ and
+`dataSync` on API 31–33. The target phone is Android 13 (API 33), where `dataSync` is not
+time-capped; on Android 14+ the app uses `specialUse` instead.
 
 ```xml
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
 <service
     android:name=".EngineService"
-    android:foregroundServiceType="specialUse"
+    android:foregroundServiceType="specialUse|dataSync"
     android:exported="false">
   <property
       android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
@@ -107,7 +110,7 @@ Do **not** use `android:usesCleartextTraffic="true"` — it is a blunt instrumen
 </service>
 ```
 
-If the app is ever published, this must be declared and justified in the Play Console. Sideloaded, it does not.
+If the app is ever published, both types must be declared and justified in the Play Console. Sideloaded, they do not.
 
 ---
 

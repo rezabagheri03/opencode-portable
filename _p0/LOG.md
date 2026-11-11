@@ -198,7 +198,8 @@ The host-side code is now complete through P1/P2/P3; the device gate is untouche
 **Fixed the reviewed blockers**
 
 1. `AndroidManifest.xml` now declares `MainActivity` as launcher and `EngineService` as a
-   `specialUse` foreground service. The built APK has a real activity and service.
+   `specialUse|dataSync` foreground service (specialUse on 34+, dataSync on 33). The built APK has
+   a real activity and service.
 2. `RootfsManager` no longer calls `File.exists()` on the guest-absolute `/bin/sh`; it checks
    `bin/busybox` as a file and `Files.isSymbolicLink` for `bin/sh`. Extraction no longer fails on a
    correct rootfs.
@@ -210,7 +211,7 @@ The host-side code is now complete through P1/P2/P3; the device gate is untouche
 
 **Implemented**
 
-- `EngineService` + `EngineController`: specialUse FGS, wake lock, rootfs/proot setup, stable
+- `EngineService` + `EngineController`: specialUse/dataSync FGS, status-based wake lock, rootfs/proot setup, stable
   password, DNS from `LinkProperties`, health poll, process supervision, SSE with reconnect/resync,
   decision timeout (5 min → deny), notifications, watch bridge.
 - `MainActivity`: extraction progress, WebView host with auth token, dark first frame, back
@@ -229,7 +230,7 @@ The host-side code is now complete through P1/P2/P3; the device gate is untouche
 
 | | |
 |---|---|
-| Phone APK | 154,812,205 bytes |
+| Phone APK | 154,815,481 bytes |
 | Watch APK | 5,073,985 bytes |
 | rootfs | 14,455,553 bytes, 1,629 tar members, 36 packages |
 | rootfs `tar_sha256` | `b1d10529…` |
@@ -246,6 +247,6 @@ does proot/ptrace run, does the stock engine boot and serve, is DNS/TLS correct,
 survive, is the WebView usable on glass, how fast is whisper on the S20 FE, and does the Watch 4 have
 its own recognizer. No device attached as of this pass.
 
-**CI:** run `43075957178` is green (3m43s) on the native+wear commit. The CI APK and rootfs hashes
+**CI:** run `43076771989` is green (3m43s) on the native+wear commit. The CI APK and rootfs hashes
 differ from the local ones for the documented reasons (debug signer; package index cache), and the
 in-APK content checks pass.

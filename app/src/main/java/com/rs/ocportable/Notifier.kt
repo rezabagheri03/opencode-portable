@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.graphics.drawable.Icon
 
 object Notifier {
     const val CHANNEL_ENGINE = "engine"
@@ -51,7 +52,7 @@ object Notifier {
             .setOnlyAlertOnce(true)
             .setShowWhen(false)
             .setCategory(Notification.CATEGORY_SERVICE)
-            .addAction(Notification.Action.Builder(null, "Stop", stop).build())
+            .addAction(Notification.Action.Builder(Icon.createWithResource(context, R.drawable.ic_notification), "Stop", stop).build())
             .build()
     }
 
@@ -89,7 +90,7 @@ object Notifier {
             .setTimeoutAfter(5 * 60 * 1000L)
             .setCategory(Notification.CATEGORY_MESSAGE)
             .setPriority(Notification.PRIORITY_HIGH)
-            .addAction(Notification.Action.Builder(null, "Deny", deny).build())
+            .addAction(Notification.Action.Builder(Icon.createWithResource(context, R.drawable.ic_notification), "Deny", deny).build())
             .build()
     }
 

@@ -59,6 +59,7 @@ class MainActivity : Activity(), EngineController.Listener {
 
     private var controller: EngineController? = null
     private var loadedUrl: String? = null
+    private var pageReady = false
     private var pendingPrompt: String? = null
     private var fileCallback: android.webkit.ValueCallback<Array<Uri>>? = null
     private var pendingMicStart = false
@@ -113,6 +114,12 @@ class MainActivity : Activity(), EngineController.Listener {
         controller?.removeListener(this)
         stopMic()
         super.onPause()
+    }
+
+    override fun onStop() {
+        loadedUrl = null
+        pageReady = false
+        super.onStop()
     }
 
     override fun onDestroy() {
@@ -294,6 +301,7 @@ class MainActivity : Activity(), EngineController.Listener {
                 openExternally(request.url)
 
             override fun onPageFinished(view: WebView, url: String) {
+                pageReady = true
                 injectBridge()
                 injectCurrentPrompt()
             }
@@ -356,6 +364,7 @@ class MainActivity : Activity(), EngineController.Listener {
             }
 
             is EngineController.State.Preparing -> {
+                loadedUrl = null
                 overlay.visibility = View.VISIBLE
                 statusText.text = state.message
                 progress.visibility = View.VISIBLE
@@ -372,6 +381,7 @@ class MainActivity : Activity(), EngineController.Listener {
             }
 
             is EngineController.State.Starting -> {
+                loadedUrl = null
                 overlay.visibility = View.VISIBLE
                 statusText.text = state.message
                 progress.visibility = View.VISIBLE
@@ -389,11 +399,13 @@ class MainActivity : Activity(), EngineController.Listener {
                 menu.visibility = View.VISIBLE
                 if (loadedUrl != state.url) {
                     loadedUrl = state.url
+                    pageReady = false
                     web.loadUrl(state.url)
                 }
             }
 
             is EngineController.State.Failed -> {
+                loadedUrl = null
                 overlay.visibility = View.VISIBLE
                 statusText.text = "Engine failed"
                 detailText.text = state.message
@@ -412,7 +424,7 @@ class MainActivity : Activity(), EngineController.Listener {
 
     private fun injectCurrentPrompt() {
         val text = pendingPrompt ?: return
-        if (!::web.isInitialized || loadedUrl == null) return
+        if (!::web.isInitialized || !pageReady) return
         pendingPrompt = null
         web.evaluateJavascript(ComposerBridge.setTextScript(text), null)
     }
@@ -471,7 +483,7 @@ class MainActivity : Activity(), EngineController.Listener {
     }
 
     private fun injectText(text: String) {
-        if (!::web.isInitialized) return
+        if (!::web.isInitialized || !pageReady) return
         web.evaluateJavascript(ComposerBridge.setTextScript(text), null)
     }
 

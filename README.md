@@ -40,7 +40,7 @@ The user opens the app, picks a model, and works. They never see a terminal.
 | **Watch companion** | Live status, approve/deny remote, stop, and push-to-talk from the wrist — **over Bluetooth, so it works on mobile data** with watch Wi-Fi off |
 | **Works offline from the phone's side** | No cloud dependency except the model call itself |
 
-**Implemented in code:** rootfs extraction and stamping, the `specialUse` foreground service, the WebView host, stable password + auth-token loading, DNS refresh, hold-to-talk (system recognizer, whisper.cpp fallback), decision notifications, battery-exemption prompt, SAF folder import, the phone↔watch Data Layer bridge, and the watch status/approve/deny/push-to-talk screens. **Not yet verified:** everything that requires the S20 FE or Watch 4; P0 remains the gate.
+**Implemented in code:** rootfs extraction and stamping, the foreground service (`specialUse` on 34+, `dataSync` on 33), the WebView host, stable password + auth-token loading, DNS refresh, hold-to-talk (system recognizer, whisper.cpp fallback), decision notifications, battery-exemption prompt, SAF folder import, the phone↔watch Data Layer bridge, and the watch status/approve/deny/push-to-talk screens. **Not yet verified:** everything that requires the S20 FE or Watch 4; P0 remains the gate.
 
 ---
 

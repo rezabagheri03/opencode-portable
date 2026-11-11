@@ -33,12 +33,17 @@ class EngineController(
         fun onPrompt(text: String)
     }
 
+    fun interface StatusListener {
+        fun onStatus(status: StatusTracker.AgentStatus)
+    }
+
     private val app = context.applicationContext
     private val main = Handler(Looper.getMainLooper())
     private val worker = Executors.newSingleThreadExecutor()
     private val layout = EngineLauncher.appFiles(app)
     private val tracker = StatusTracker()
     private val listeners = CopyOnWriteArrayList<Listener>()
+    private val statusListeners = CopyOnWriteArrayList<StatusListener>()
     private val output = ArrayDeque<String>()
 
     private val rootfs = RootfsManager.forApp(app) { progress ->
@@ -48,6 +53,7 @@ class EngineController(
     @Volatile private var process: Process? = null
     @Volatile private var client: EngineClient? = null
     @Volatile private var sseThread: Thread? = null
+    @Volatile private var sseGeneration = 0
     @Volatile private var watch: WearBridge? = null
     @Volatile private var dnsCallback: ConnectivityManager.NetworkCallback? = null
     @Volatile private var stopping = false
@@ -70,6 +76,15 @@ class EngineController(
 
     fun removeListener(listener: Listener) {
         listeners -= listener
+    }
+
+    fun addStatusListener(listener: StatusListener) {
+        if (listener !in statusListeners) statusListeners += listener
+        listener.onStatus(tracker.status())
+    }
+
+    fun removeStatusListener(listener: StatusListener) {
+        statusListeners -= listener
     }
 
     fun start() {
@@ -103,6 +118,12 @@ class EngineController(
     fun stop() {
         stopping = true
         worker.execute { stopInternal() }
+    }
+
+    /** Synchronous teardown for service destruction; no worker can be relied on after this. */
+    fun stopNow() {
+        stopping = true
+        stopInternal()
     }
 
     fun replyPermission(sessionID: String, requestID: String, decision: String) {
@@ -147,6 +168,7 @@ class EngineController(
             val engine = EngineClient(password = password)
             client = engine
             val dns = Dns.servers(app)
+            if (stopping) return
 
             setState(State.Starting("Starting engine…"))
             val child = EngineLauncher.start(layout, dns, password)
@@ -225,7 +247,7 @@ class EngineController(
             } catch (_: Exception) {
                 // The process went away; the exit path below owns the state change.
             }
-            if (!stopping) onProcessExit()
+            if (!stopping && process === child) onProcessExit()
         }.start()
     }
 
@@ -256,8 +278,9 @@ class EngineController(
     }
 
     private fun startSse(engine: EngineClient) {
+        val generation = ++sseGeneration
         val thread = Thread {
-            while (!stopping && process?.isAlive == true) {
+            while (!stopping && generation == sseGeneration && process?.isAlive == true) {
                 try {
                     engine.stream(
                         onEvent = ::handleEvent,
@@ -270,7 +293,7 @@ class EngineController(
                 } catch (t: Throwable) {
                     if (!stopping) Log.d(TAG, "event stream closed: ${t.message}")
                 }
-                if (stopping || process?.isAlive != true) return@Thread
+                if (stopping || generation != sseGeneration || process?.isAlive != true) return@Thread
                 try {
                     Thread.sleep(1_000)
                 } catch (_: InterruptedException) {
@@ -283,6 +306,7 @@ class EngineController(
     }
 
     private fun stopSse() {
+        sseGeneration++
         sseThread?.interrupt()
         sseThread = null
     }
@@ -316,6 +340,7 @@ class EngineController(
         watch?.sendStatus(status)
         main.post {
             listeners.forEach { it.onStatus(status) }
+            statusListeners.forEach { it.onStatus(status) }
         }
     }
 

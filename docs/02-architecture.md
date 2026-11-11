@@ -19,7 +19,7 @@ How the pieces fit, what starts in what order, and how the watch stays in sync.
 │                                                                                      │
 │  ┌───────────────── Kotlin app process ─────────────────┐   ┌──── WebView process ─┐ │
 │  │                                                      │   │                      │ │
-│  │  ForegroundService (specialUse)                      │   │  the opencode web    │ │
+│  │  ForegroundService (specialUse|dataSync)             │   │  the opencode web    │ │
 │  │    │                                                 │   │  GUI, served from    │ │
 │  │    ├─ unpack rootfs (first run only)                 │   │  the binary.         │ │
 │  │    ├─ spawn proot ──────────────────────────┐        │   │                      │ │
@@ -118,7 +118,7 @@ Constraint: **the WebView is a client, not the engine.** If the engine dies, the
 2. **Permissions gate.** `RECORD_AUDIO` requested lazily on first mic use, **not** at launch. Startup must not show a dialog (US-1).
 3. **Rootfs check.** If `/data/data/…/files/rootfs/.ok` is absent, extract the bundled tarball. Show progress. Once only, ~5–15 s.
 4. **Binary check.** Extract `proot-deps.dat` once, then bind `nativeLibraryDir/libopencode.so` into the rootfs at `/usr/local/bin/opencode`. The engine is **not copied into app data**: Android ≥10 refuses to exec from there at targetSdk ≥29 (see [03-platform.md](03-platform.md#1-exec-from-app-data)).
-5. **FGS starts** (`specialUse`), acquires `PARTIAL_WAKE_LOCK`.
+5. **FGS starts** (`specialUse` on API 34+, `dataSync` on API 31–33), acquires `PARTIAL_WAKE_LOCK`.
 6. **proot launches** `opencode serve --port 4096 --hostname 127.0.0.1` inside the rootfs, with the workspace bound at `/workspace` and `-w /workspace`, `HOME=/root`, a complete `PATH`, and `OPENCODE_PASSWORD` set from app-private storage.
 7. **Health poll** on `http://127.0.0.1:4096/` until 200, with exponential backoff and a 60 s ceiling. On failure: surface the child's stderr in the UI — never a blank screen.
 8. **WebView loads** `http://127.0.0.1:4096/?auth_token=<base64(user:password)>`. The app consumes the parameter, strips it from the URL and keeps it as the connection credential ([ADR-012](04-decisions.md#adr-012)). Its background colour is set to the app's dark background first, so there is no white flash.
@@ -297,7 +297,7 @@ fails the stream. The bridge therefore resyncs on every `server.connected` by ca
 
 Android will try to kill this app. The mitigations, in order of importance:
 
-1. **`specialUse` foreground service** with `PROPERTY_SPECIAL_USE_FGS_SUBTYPE` — the only FGS type that plausibly fits "runs a local agent server" and is not time-capped.
+1. **`specialUse` foreground service on Android 14+, `dataSync` on Android 13** (where it is not time-capped), with `PROPERTY_SPECIAL_USE_FGS_SUBTYPE` on the former.
 2. **`PARTIAL_WAKE_LOCK`** so the CPU does not sleep mid-task. Release when idle for >5 min.
 3. **Battery optimisation exemption** requested with a clear explanation, not silently.
 4. **`onTaskRemoved` / process-death handler** that restarts the child and reloads the WebView rather than showing a dead UI.
