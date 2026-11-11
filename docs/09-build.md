@@ -89,8 +89,11 @@ Steps: checkout → JDK 21 → Python 3.12 → `setup-android` → `sdkmanager` 
 build-tools 36, **NDK 30.0.14904198 and CMake 3.22.1** → restore the download cache →
 `bash tools/build.sh` → upload both APKs and the rootfs.
 
-The workflow has completed successfully on the previous code. The current native+wear pass has not
-been pushed yet, so its first CI run is still pending. Two earlier corrections are already in:
+The workflow has completed successfully on the current native+wear code (run `43075957178`,
+3m43s). The CI phone APK is 154,748,379 bytes versus 154,812,205 locally; the debug keystore and
+signer differ, and `check_apk_asset.py` passes on both. The CI rootfs `tar_sha256` also differs from
+the local one because `build.py` resolves a package index cached at a different time; that is the
+documented caveat, not a mismatch inside an APK. Two earlier corrections are already in:
 
 - `android-actions/setup-android` defaults to `packages: tools platform-tools`, and **`tools` no
   longer exists in the SDK repository**, so the step failed before the build began. It now asks for

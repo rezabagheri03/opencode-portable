@@ -4,7 +4,7 @@ A **self-contained Android app that runs the full opencode agent on a phone** â€
 
 No Termux. No external server. No root. One APK.
 
-**Status:** design complete; build pipeline and the phone/watch code paths implemented, but **not yet verified on hardware**. The P0 gate is still the next step.
+**Status:** design complete; build pipeline and the phone/watch code paths implemented and CI-green, but **not yet verified on hardware**. The P0 gate is still the next step.
 **As of:** 2026-11-11
 
 ```bash

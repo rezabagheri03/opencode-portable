@@ -64,7 +64,7 @@ jobs:
             echo "wear_sha256=$(sha256sum wear/build/outputs/apk/debug/wear-debug.apk | cut -d' ' -f1)"
             echo "wear_bytes=$(stat -c %s wear/build/outputs/apk/debug/wear-debug.apk)"
             echo "rootfs=$(python3 -c "import json;print(json.load(open('dist/rootfs/MANIFEST.json'))['rootfs']['tar_sha256'])")"
-            echo "engine=$(python3 -c "import json;print(json.load(open('dist/rootfs/MANIFEST.json'))['base']['sha256'])")"
+            echo "engine=$(python3 -c "import sys;sys.path.insert(0,'tools');import fetch_binaries as f;print(f.ENGINE['sha256'])")"
           } >> "$GITHUB_OUTPUT"
 
       # The APK is ~121 MB, which exceeds what some artifact tooling handles comfortably, so the
@@ -102,6 +102,7 @@ jobs:
             echo "| Watch APK | \`${{ steps.outputs.outputs.wear_bytes }}\` bytes |"
             echo "| Watch sha256 | \`${{ steps.outputs.outputs.wear_sha256 }}\` |"
             echo "| rootfs tar sha256 | \`${{ steps.outputs.outputs.rootfs }}\` |"
+            echo "| engine pin | \`${{ steps.outputs.outputs.engine }}\` |"
             echo
             echo "The engine binary is not uploaded as a separate artifact: it is hash-checked against"
             echo "the pin in docs/06-artifact-verification.md §1 on every build, and check_apk_asset.py"
