@@ -5,6 +5,7 @@ plugins {
 android {
     namespace = "com.rs.ocportable"
     compileSdk = 36
+    ndkVersion = "30.0.14904198"
 
     defaultConfig {
         applicationId = "com.rs.ocportable"
@@ -13,6 +14,14 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         ndk { abiFilters += "arm64-v8a" }
+
+        externalNativeBuild {
+            cmake {
+                // Native whisper must stay optimized even in a debug APK; otherwise
+                // transcription is unusably slow on device.
+                arguments += "-DCMAKE_BUILD_TYPE=Release"
+            }
+        }
 
         // Which rootfs this APK carries. RootfsManager stamps the extracted tree with it and
         // re-extracts when the stamp disagrees, so a rebuilt rootfs replaces a stale one instead of
@@ -30,9 +39,22 @@ android {
 
     buildFeatures { buildConfig = true }
 
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+        }
+    }
+
     // The engine ships as libopencode.so and is exec'd from nativeLibraryDir,
     // which is the only place Android >= 10 lets a third-party app exec from.
-    packaging { jniLibs { useLegacyPackaging = true } }
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+            // The engine is the pinned artifact; do not let AGP strip it. whisper_jni may be
+            // stripped normally.
+            keepDebugSymbols += "**/libopencode.so"
+        }
+    }
 
     // The rootfs ships as `assets/rootfs.dat`: already gzipped, and STORED uncompressed in the APK.
     //
@@ -52,6 +74,8 @@ android {
 }
 
 dependencies {
+    implementation("com.google.android.gms:play-services-wearable:20.0.1")
     testImplementation(kotlin("test"))
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
 }

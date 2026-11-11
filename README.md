@@ -4,11 +4,11 @@ A **self-contained Android app that runs the full opencode agent on a phone** �
 
 No Termux. No external server. No root. One APK.
 
-**Status:** design complete; toolchain and build pipeline working, app code not started.
-**As of:** 2026-10-21
+**Status:** design complete; build pipeline and the phone/watch code paths implemented, but **not yet verified on hardware**. The P0 gate is still the next step.
+**As of:** 2026-11-11
 
 ```bash
-bash tools/build.sh     # fetches, verifies, tests, assembles → 121 MB debug APK
+bash tools/build.sh     # fetches, verifies, tests, assembles → ~155 MB phone APK + ~5 MB watch APK
 ```
 
 ---
@@ -36,9 +36,11 @@ The user opens the app, picks a model, and works. They never see a terminal.
 | **Real GUI** | The web GUI this project already ships, in a WebView. Not a TUI, not a remote control |
 | **Zero-config models** | Free models work signed out — no account, no API key ([verified in source](docs/01-product.md#zero-config-models)) |
 | **The desktop app's actual UI** | The phone renders `@opencode/app` — the same UI package the Electron app wraps — not a lookalike ([verified](docs/06-artifact-verification.md#9-the-gui-requirement-verified)) |
-| **Voice input** | Mic in the composer; phone's built-in STT, bundled offline model as fallback |
+| **Voice input** | Mic in the composer; phone's built-in STT, bundled whisper.cpp model as fallback |
 | **Watch companion** | Live status, approve/deny remote, stop, and push-to-talk from the wrist — **over Bluetooth, so it works on mobile data** with watch Wi-Fi off |
 | **Works offline from the phone's side** | No cloud dependency except the model call itself |
+
+**Implemented in code:** rootfs extraction and stamping, the `specialUse` foreground service, the WebView host, stable password + auth-token loading, DNS refresh, hold-to-talk (system recognizer, whisper.cpp fallback), decision notifications, battery-exemption prompt, SAF folder import, the phone↔watch Data Layer bridge, and the watch status/approve/deny/push-to-talk screens. **Not yet verified:** everything that requires the S20 FE or Watch 4; P0 remains the gate.
 
 ---
 
@@ -57,9 +59,9 @@ Development targets arm64-v8a Android 13+ and Wear OS 3+. Any modern Android pho
 
 | | Size |
 |---|---|
-| Download | ~130 MB, or ~170 MB with the bundled offline voice model |
-| Installed | ~330 MB |
-| Where it goes | 197.6 MiB opencode binary (deflated to ~96 MiB inside the APK) + ~16 MiB Alpine rootfs + ~12 MiB proot, WebView and Kotlin code + ~40 MiB optional offline STT model |
+| Download | ~155 MB, including the bundled STT model |
+| Installed | ~300 MB |
+| Where it goes | 197.6 MiB opencode binary (deflated to ~104 MiB inside the APK) + ~14 MiB Alpine rootfs + ~12 MiB proot/WebView/Kotlin + ~30 MiB whisper model + ~1 MiB whisper JNI |
 | Runtime RAM | **[I]** ~400–600 MB while idle (engine + WebView) — measured in P0-4 |
 
 Big, and unavoidably so: 69.6 MB of the binary is Bun/JavaScriptCore native code that no build flag removes, and the remaining 132.8 MB is the app's own bundled JavaScript. The optional "lean build" is a **source rebuild with a narrowed entrypoint** — there is no Skia to strip, and surgery on the shipped binary is impossible ([measured](docs/06-artifact-verification.md#4-where-the-bytes-are-v)).
@@ -120,6 +122,9 @@ opencode portable/
 ├─ README.md              ← you are here
 ├─ TODO.md                ← the work
 ├─ docs/                  ← design documents
+├─ app/                   ← phone app: FGS, WebView, voice, watch bridge
+├─ wear/                  ← Wear OS companion: status, approve/deny, push-to-talk
+├─ tools/                 ← binary fetch, rootfs build, whisper fetch, APK checks
 ├─ opencode-src/          ← shallow clone of opencode v2.1.1, read-only reference
 ├─ findings/              ← raw research notes from the survey phase
 └─ _recon/                ← raw command output used as evidence

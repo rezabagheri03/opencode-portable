@@ -26,7 +26,7 @@ Why this architecture and not the obvious alternatives. Each record is short on 
 
 **Decision.** Ship the web UI in a WebView. Patch it only for mobile layout and the mic hook.
 
-**Consequence.** Zero UI development, and the GUI is correct by construction. Cost: a ~125 MiB APK for a page that a native client would not need, and WebView scroll physics that are close to native but not identical. The escape hatch is real: the engine and the watch do not care what renders the chat, so a native client can be added later — or for only the chat screen — without touching anything else.
+**Consequence.** Zero UI development, and the GUI is correct by construction. Cost: a ~155 MiB APK for a page that a native client would not need, and WebView scroll physics that are close to native but not identical. The escape hatch is real: the engine and the watch do not care what renders the chat, so a native client can be added later — or for only the chat screen — without touching anything else.
 
 ---
 
@@ -117,7 +117,7 @@ So "voice" is not one thing upstream: **dictation into the composer does not exi
 | **Watch microphone** | **Bundled offline model, always** | The only path that needs no key and no buffer API |
 | Optional cloud | The existing `voice.session` route, or a new transcription group | Better accuracy; free to skip |
 
-**Consequence.** The bundled model is still a hard dependency of the watch feature, so P2-3 remains a prerequisite for P3 and the 30–80 MB belongs in the size budget from the start. What changes is the claim around it: cloud STT is no longer *excluded*, it is kept **out of the default path**. It costs one key, it is already implemented server-side, and the app is fully usable without it — which is the property that actually matters for a zero-config install.
+**Consequence.** The bundled model is still a hard dependency of the watch feature, so P2-3 remains a prerequisite for P3 and the model belongs in the size budget from the start. **Implemented choice:** whisper.cpp 1.9.5 with `ggml-tiny.en-q5_1` (32.2 MB), a JNI wrapper, and µ-law decode/upsample on the phone. It is English-only; a multilingual model can be swapped without touching the bridge. What changes is the claim around it: cloud STT is no longer *excluded*, it is kept **out of the default path**. It costs one key, it is already implemented server-side, and the app is fully usable without it — which is the property that actually matters for a zero-config install.
 
 **[?]** If the watch turns out to have a usable on-device speech recognizer of its own, the watch sends **text** and this entire path disappears. That is the first thing P3 tests.
 
@@ -169,7 +169,7 @@ So "voice" is not one thing upstream: **dictation into the composer does not exi
 
 **Context.** The product needs a mic button in the composer and a mobile CSS pass. It does not need a different engine.
 
-**Decision.** Two bounded patches (documented in [02-architecture.md](02-architecture.md#upstream-patches-required)), each small enough to upstream. Core engine, tools, permissions, and providers stay unmodified.
+**Decision.** Ship the stock binary. The two host-side additions (native mic overlay + injected CSS) are documented in [02-architecture.md](02-architecture.md#upstream-changes-required); neither changes the engine source. Core engine, tools, permissions, and providers stay unmodified.
 
 **Consequence.** Upstream updates stay cheap to absorb, and a patch that turns out to be unnecessary can be dropped. The tripwire is explicit: **if a change requires forking the core, the architecture is wrong and this document should be revisited**, not the patch expanded.
 
@@ -210,7 +210,7 @@ So "voice" is not one thing upstream: **dictation into the composer does not exi
 3. **Start with µ-law 8 kHz** unless the measurement says otherwise. It is one table, no dependency, and 4× smaller than raw. Speech at 8 kHz is what telephony used for a century, and the ASR model resamples it happily.
 4. **Escalate to Opus** only if µ-law transcripts are visibly worse in use. Bundling `libopus` by NDK is ~500 KB and a real, if small, build dependency.
 
-**Consequence.** The feature ships without a codec dependency and without a guess. The known cost is fidelity: narrowband 8 kHz audio loses sibilance, which may show up as misheard words. That is a measurable, reversible decision — and a much better failure mode than an unmeasured throughput assumption that makes the watch feel broken.
+**Consequence.** The feature ships without a codec dependency and without a guess. **Implemented:** the watch records 8 kHz mono, encodes µ-law, and sends the clip over `ChannelClient`; the phone decodes it, upsamples to 16 kHz, and runs the bundled whisper model. The P3-0 measurement still decides whether that stays the default or escalates. The known cost is fidelity: narrowband 8 kHz audio loses sibilance, which may show up as misheard words. That is a measurable, reversible decision — and a much better failure mode than an unmeasured throughput assumption that makes the watch feel broken.
 
 If P3-0 measures comfortable throughput (say, a 320 KB clip in under a second), raw or 16 kHz µ-law becomes the default and transcription quality improves for free.
 
@@ -278,3 +278,27 @@ See [07-engine-api.md](07-engine-api.md#1-authentication) for the full auth cont
 **Note on the `auth_token` ordering.** `clearAuthToken()` runs before `restorePwaRoute()`, so the
 route restore does not see the parameter and is not suppressed by the guard at `pwa.ts:22`. That
 ordering is load-bearing; if the shell ever injects the token later, route restoration stops working.
+
+---
+
+<a id="adr-013"></a>
+## ADR-013 — Native mic overlay + injected composer setter; no engine source patch
+
+**Status:** Accepted
+
+**Context.** The mic button was originally planned as a ~50-line patch to the web UI. But the build
+ships the **stock** engine binary, and the served page's CSP hashes its one inline script
+(`oc-theme-preload`); editing `index.html` invalidates that hash and the UI fails to boot under its
+own policy. A composer button therefore means rebuilding the engine from source, which turns a
+two-day task into a source-build pipeline.
+
+**Decision.** Keep the stock binary. Add a small native mic button over the WebView and inject
+`window.__oc_setComposerText(text)` with `evaluateJavascript` after page load. The function targets a
+textarea or a contenteditable composer, uses the native value setter where possible, and dispatches
+`input`/`change` so the framework sees the change. Phone voice uses the system recognizer when
+available and the bundled whisper model otherwise. Watch voice records µ-law and sends a clip over
+`ChannelClient`, which the phone transcribes with the same model.
+
+**Consequence.** No engine rebuild and no CSP change; the APK stays on the pinned 2.1.1 binary. The
+cost is a native floating button rather than a button inside the composer, and a DOM hook that must
+be checked on glass. If upstream adds a composer mic button, delete the overlay and the injection.

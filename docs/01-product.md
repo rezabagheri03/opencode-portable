@@ -77,7 +77,7 @@ Consequences for the product:
 | Priority | Engine | Why |
 |---|---|---|
 | 1 | Android's `SpeechRecognizer` | 0 MB, instant, streams partial words, handles Bluetooth headsets and the watch for free |
-| 2 | Bundled offline model (whisper.cpp or sherpa-onnx) | Deterministic, no speech service required, ~30–80 MB |
+| 2 | Bundled offline model (whisper.cpp `tiny.en-q5_1`, 32 MB) | Deterministic, no speech service required, and the only path that can transcribe watch audio |
 | 3 | *(opt-in, not v1)* Cloud STT — **already implemented upstream** | Best accuracy; five providers are wired into `@opencode/ai` and the server already brokers realtime voice sessions. It costs one API key, so it cannot be the default |
 
 Behaviour: hold mic → speak → partial text streams into the composer → release → text settles and you can edit before sending. Nothing auto-sends in v1; an autonomous agent should not act on a mis-transcription.

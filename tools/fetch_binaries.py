@@ -13,6 +13,8 @@ Outputs:
   app/src/main/jniLibs/arm64-v8a/libopencode.so   exec'd from nativeLibraryDir
   app/src/main/jniLibs/arm64-v8a/libproot.so      same; proot is a Bionic binary
   app/src/main/assets/proot-deps.dat              gzipped tar of proot's .so deps (talloc, shmem)
+  app/src/main/cpp/whisper.cpp/                   pinned whisper.cpp source for the CMake build
+  app/src/main/assets/whisper-model.bin           ggml-tiny.en-q5_1, copied out on first use
 
 The deps go to assets, not jniLibs, for two reasons: AGP only accepts a `.so` suffix in jniLibs and
 `libtalloc.so.2` is not one, and proot resolves them through LD_LIBRARY_PATH at exec time rather than
@@ -50,6 +52,20 @@ ENGINE = {
 
 TERMUX = "https://packages.termux.dev/apt/termux-main"
 TERMUX_PACKAGES = ["proot", "libtalloc", "libandroid-shmem"]
+
+# Whisper.cpp is built from pinned source by CMake; the model is copied from assets on first use.
+# Both are fetched here so the native build is reproducible and the repo stays small.
+WHISPER = {
+    "version": "1.9.5",
+    "url": "https://github.com/ggerganov/whisper.cpp/archive/refs/tags/v1.9.5.tar.gz",
+    "sha256": "ff1a9053feb509ff9d7729703355541ae9690073a6b1c40eb692c962e0dc1720",
+    "top": "whisper.cpp-1.9.5",
+    "source_dir": "app/src/main/cpp/whisper.cpp",
+    "model_url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en-q5_1.bin",
+    "model_sha256": "c77c5766f1cef09b6b7d47f21b546cbddd4157886b3b5d6d4f709e91e66c7c2b",
+    "model_bytes": 32166155,
+    "model_dest": "app/src/main/assets/whisper-model.bin",
+}
 
 # Which .so files each Termux package contributes, and the name the loader will ask for.
 PROOT_LIBS = {"libtalloc.so.2.5.0": "libtalloc.so.2", "libandroid-shmem.so": "libandroid-shmem.so"}
@@ -150,7 +166,7 @@ def stage_proot(cache: Path, jni: Path, assets: Path, check_only: bool) -> dict:
     if not check_only:
         with open(assets / "proot-deps.dat", "wb") as raw:
             with gzip.GzipFile(fileobj=raw, mode="wb", compresslevel=9, mtime=1_700_000_000) as gz:
-                with tarfile.open(fileobj=gz, mode="w") as tf:
+                with tarfile.open(fileobj=gz, mode="w", format=tarfile.USTAR_FORMAT) as tf:
                     for name, body in sorted(libs.items()):
                         info = tarfile.TarInfo(name)
                         info.size = len(body)
@@ -176,6 +192,73 @@ def _ar_member(data: bytes, want: str) -> bytes:
     fail(f"{want} not found in archive")
 
 
+def stage_whisper(cache: Path, check_only: bool) -> None:
+    source = Path(WHISPER["source_dir"])
+    marker = source / ".source-sha256"
+    model = Path(WHISPER["model_dest"])
+
+    if check_only:
+        if not marker.is_file() or marker.read_text().strip() != WHISPER["sha256"]:
+            fail(f"whisper source is missing or stale: {source}")
+        if not (source / "CMakeLists.txt").is_file():
+            fail(f"whisper source tree is incomplete: {source}")
+        if not model.is_file():
+            fail(f"missing: {model}")
+        if sha256(model.read_bytes()) != WHISPER["model_sha256"]:
+            fail(f"{model} does not match the pinned whisper model")
+        return
+
+    if not (
+        marker.is_file()
+        and marker.read_text().strip() == WHISPER["sha256"]
+        and (source / "CMakeLists.txt").is_file()
+    ):
+        data = fetch(WHISPER["url"], cache)
+        digest = sha256(data)
+        if digest != WHISPER["sha256"]:
+            fail(f"whisper source sha256 {digest} != pinned {WHISPER['sha256']}")
+        if source.exists():
+            for child in source.iterdir():
+                if child.is_dir():
+                    import shutil
+                    shutil.rmtree(child)
+                else:
+                    child.unlink()
+        source.mkdir(parents=True, exist_ok=True)
+        top = WHISPER["top"] + "/"
+        with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tf:
+            for member in tf.getmembers():
+                if member.name == WHISPER["top"]:
+                    continue
+                if not member.name.startswith(top):
+                    continue
+                relative = member.name[len(top):]
+                parts = relative.split("/")
+                if not relative or ".." in parts or relative.startswith("/"):
+                    fail(f"unsafe whisper source member: {member.name}")
+                target = source / relative
+                if member.isdir():
+                    target.mkdir(parents=True, exist_ok=True)
+                elif member.isfile():
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_bytes(tf.extractfile(member).read())
+        marker.write_text(WHISPER["sha256"])
+
+    model.parent.mkdir(parents=True, exist_ok=True)
+    if not model.is_file() or sha256(model.read_bytes()) != WHISPER["model_sha256"]:
+        data = fetch(WHISPER["model_url"], cache)
+        digest = sha256(data)
+        if digest != WHISPER["model_sha256"]:
+            fail(f"whisper model sha256 {digest} != pinned {WHISPER['model_sha256']}")
+        if len(data) != WHISPER["model_bytes"]:
+            fail(f"whisper model is {len(data)} bytes, expected {WHISPER['model_bytes']}")
+        temporary = model.with_suffix(model.suffix + ".tmp")
+        temporary.write_bytes(data)
+        if model.exists():
+            model.unlink()
+        temporary.rename(model)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--cache", default=".cache/binaries")
@@ -196,6 +279,10 @@ def main() -> int:
     if not args.check:
         print(f"proot-deps.dat  {(assets / 'proot-deps.dat').stat().st_size:,} bytes "
               f"({', '.join(PROOT_LIBS.values())})")
+
+    stage_whisper(cache, args.check)
+    print(f"whisper.cpp     {WHISPER['version']}")
+    print(f"whisper model   {WHISPER['model_bytes']:,} bytes")
     return 0
 
 

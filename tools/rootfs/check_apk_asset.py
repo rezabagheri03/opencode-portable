@@ -11,8 +11,13 @@ import hashlib
 import json
 import sys
 import zipfile
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from fetch_binaries import ENGINE  # noqa: E402  (the pin lives in one place)
 
 ASSET = "assets/rootfs.dat"
+ENGINE_ASSET = "lib/arm64-v8a/libopencode.so"
 
 
 def main(apk_path: str, manifest_path: str) -> int:
@@ -24,6 +29,10 @@ def main(apk_path: str, manifest_path: str) -> int:
             return 1
         info = apk.getinfo(ASSET)
         data = apk.read(ASSET)
+        if ENGINE_ASSET not in apk.namelist():
+            print(f"FAIL: {ENGINE_ASSET} not in APK")
+            return 1
+        engine = apk.read(ENGINE_ASSET)
 
     digest = hashlib.sha256(data).hexdigest()
     problems = []
@@ -40,11 +49,20 @@ def main(apk_path: str, manifest_path: str) -> int:
     if len(data) != expected["bytes"]:
         problems.append(f"size {len(data)} != pinned {expected['bytes']}")
 
+    # The engine must be the exact pinned binary, not a stripped/re-linked copy. AGP's
+    # stripDebugSymbols task is configured to leave it alone for this reason.
+    if len(engine) != ENGINE["bytes"]:
+        problems.append(f"engine size {len(engine)} != pinned {ENGINE['bytes']}")
+    engine_digest = hashlib.sha256(engine).hexdigest()
+    if engine_digest != ENGINE["sha256"]:
+        problems.append(f"engine sha256 {engine_digest} != pinned {ENGINE['sha256']}")
+
     for problem in problems:
         print(f"FAIL: {problem}")
     if problems:
         return 1
     print(f"ok — APK carries the verified rootfs ({info.file_size:,} bytes, {digest[:16]}…)")
+    print(f"ok — APK carries the pinned engine ({len(engine):,} bytes, {engine_digest[:16]}…)")
     return 0
 
 

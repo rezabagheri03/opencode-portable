@@ -117,12 +117,12 @@ Constraint: **the WebView is a client, not the engine.** If the engine dies, the
 1. **App launched.** `Application.onCreate` pre-warms the WebView (a cold WebView costs 300–800 ms) and reads persisted state.
 2. **Permissions gate.** `RECORD_AUDIO` requested lazily on first mic use, **not** at launch. Startup must not show a dialog (US-1).
 3. **Rootfs check.** If `/data/data/…/files/rootfs/.ok` is absent, extract the bundled tarball. Show progress. Once only, ~5–15 s.
-4. **Binary check.** Extract the packaged engine binary and `chmod 0755`. Done once. **The binary ships as `lib/<abi>/libopencode.so`** and is executed from `nativeLibraryDir`, because Android ≥10 refuses to exec from the app data directory at targetSdk ≥29 (see [03-platform.md](03-platform.md#1-exec-from-app-data)).
+4. **Binary check.** Extract `proot-deps.dat` once, then bind `nativeLibraryDir/libopencode.so` into the rootfs at `/usr/local/bin/opencode`. The engine is **not copied into app data**: Android ≥10 refuses to exec from there at targetSdk ≥29 (see [03-platform.md](03-platform.md#1-exec-from-app-data)).
 5. **FGS starts** (`specialUse`), acquires `PARTIAL_WAKE_LOCK`.
-6. **proot launches** `opencode serve --port 4096 --hostname 127.0.0.1` inside the rootfs, with the workspace bind-mounted and `OPENCODE_PASSWORD` set from app-private storage.
+6. **proot launches** `opencode serve --port 4096 --hostname 127.0.0.1` inside the rootfs, with the workspace bound at `/workspace` and `-w /workspace`, `HOME=/root`, a complete `PATH`, and `OPENCODE_PASSWORD` set from app-private storage.
 7. **Health poll** on `http://127.0.0.1:4096/` until 200, with exponential backoff and a 60 s ceiling. On failure: surface the child's stderr in the UI — never a blank screen.
 8. **WebView loads** `http://127.0.0.1:4096/?auth_token=<base64(user:password)>`. The app consumes the parameter, strips it from the URL and keeps it as the connection credential ([ADR-012](04-decisions.md#adr-012)). Its background colour is set to the app's dark background first, so there is no white flash.
-9. **Watch bridge connects.** `NodeClient` finds the paired node; `CapabilityClient` confirms it runs our watch app; `MessageClient` begins pushing derived state.
+9. **Watch bridge connects.** `CapabilityClient` finds the paired node; `MessageClient` begins pushing derived state.
 
 **[I]** Step 6's exact CLI flags need confirming against `opencode serve --help` on-device. `packages/cli/src/server-process.ts:71` shows the resolution order `hostname ?? config.hostname ?? "127.0.0.1"`, so a config file can also pin it.
 
@@ -189,16 +189,18 @@ Both surfaces are equal. Whichever answers first wins; the other dismisses.
 ### Watch voice
 
 ```
-watch: AudioRecord 16 kHz mono → compress → ChannelClient
-                                                    ↓ (Bluetooth)
-phone FGS: receive → decode → PCM → bundled STT model → text
-                                                    ↓
-                              composer (for review, never auto-sent)
+watch: AudioRecord 8 kHz mono → µ-law (8 KB/s) → ChannelClient
+                                               ↓ (Bluetooth)
+phone FGS: receive → µ-law decode → 2× upsample → bundled whisper model → text
+                                               ↓
+                          composer (for review, never auto-sent)
 ```
 
-**This is the one path that forces a bundled STT model.** Android's `SpeechRecognizer` has no API for "transcribe this buffer" — it only listens to the local microphone. So watch audio must be transcribed by a model we ship. See [ADR-005](04-decisions.md#adr-005).
-
-**[?]** Before building any of this: the watch may have its own usable speech recognizer, in which case the watch sends **text** and this entire pipeline disappears. That is a 30-minute test, and it is the first task in P3.
+**This is the fallback path that forces a bundled STT model.** Android's `SpeechRecognizer` has no
+API for "transcribe this buffer" — it only listens to the local microphone. The watch app first uses
+its own recognizer when one is available (P3-0 tests that); if not, it sends µ-law audio and the
+phone transcribes it with the bundled model. See [ADR-005](04-decisions.md#adr-005) and
+[ADR-011](04-decisions.md#adr-011).
 
 ---
 
@@ -258,10 +260,11 @@ This replaces the six-digit code entirely. It also removes the Watch 4's lack of
 
 **[V]** The engine events behind this mapping are now enumerated in
 [07-engine-api.md](07-engine-api.md#4-event-stream): `session.execution.started` / `.succeeded` /
-`.failed` / `.interrupted` drive the phase, and `session.tool.called` carries `name` plus the tool's
-`input` — which is what turns `edit` + `{path}` into "editing `auth.ts`" and `shell` + `{command}`
-into "running `bun test`". `permission.asked` carries the full request. All confirmed from source, so
-this mapping is a contract rather than a guess.
+`.failed` / `.interrupted` drive the phase, and `session.tool.called` carries the tool `input`.
+The tool **name** comes from the preceding `session.tool.input.started`, keyed by the tool-call id —
+which is what turns `edit` + `{path}` into "editing `auth.ts`" and `shell` + `{command}` into
+"running `bun test`". `permission.asked` carries the full request. All confirmed from source, so this
+mapping is a contract rather than a guess.
 
 The watcher still consumes only the bridge's derived state, not raw engine events, so the watch does
 not break if the engine's event schema changes.
@@ -306,18 +309,20 @@ Not available: `BOOT_COMPLETED` autostart of a `dataSync` service, and `dataSync
 
 ---
 
-## Upstream patches required
+## Upstream changes required
 
-The rule: **every patch must be small, and every patch must be upstreamable.**
+The rule: **every change must be small, and every change must be upstreamable.** In the current build
+there are **no engine-source changes at all**: the stock binary is shipped, and both native additions
+are outside it.
 
 | # | Change | Size | Why |
 |---|---|---|---|
-| P-1 | Mic button in the composer + JS bridge hooks | ~50 lines | Native STT cannot reach a React-controlled field cleanly without a hook |
-| P-3 | Mobile layout pass: `100dvh`, safe-area insets, no hover states, 16px inputs | CSS only | See [03-platform.md](03-platform.md#webview-feel) |
+| P-1 | Native floating mic button over the WebView + injected `window.__oc_setComposerText` | ~100 lines Kotlin/JS | Android's `SpeechRecognizer` cannot reach a React-controlled composer without a hook; injecting avoids touching the CSP-hashed HTML |
+| P-3 | Injected mobile CSS (`ComposerBridge.CSS`) | CSS only | The six tells, without modifying the served page or its CSP hash |
 
 Bluetooth routing **removed** a previously planned patch. Because the Kotlin bridge consumes the engine's existing SSE stream and re-exposes a compact state object to the watch, the engine needs no new endpoint and no public API surface. The watch never speaks HTTP.
 
-Everything else — engine, tools, permissions, providers — is **unmodified upstream**. If a change requires forking the core, the plan is wrong.
+Everything else — engine, tools, permissions, providers — is **unmodified upstream**. If a change requires forking the core, the plan is wrong. The voice path is the one place where a future upstream patch would be cleaner than the native overlay; it is recorded in [ADR-013](04-decisions.md#adr-013).
 
 ---
 
@@ -325,8 +330,7 @@ Everything else — engine, tools, permissions, providers — is **unmodified up
 
 | Artifact | Contents | Size |
 |---|---|---|
-| `app` APK | Kotlin shell, WebView, assets, `lib/*/libopencode.so`, `lib/*/libproot.so`, rootfs tarball | ~125 MB download / ~250 MB installed |
-| `wear` APK | Watch client only (no engine, no rootfs) | ~6 MB |
-| `opencode-src` build | Stock `bun build --compile --target=bun-linux-arm64-musl`, optionally with P-1/P-3 | 197.56 MiB / 207.16 MB |
+| `app` APK | Kotlin shell, WebView, assets, `lib/*/libopencode.so`, `lib/*/libproot.so`, `lib/*/libwhisper_jni.so`, `assets/rootfs.dat`, `assets/whisper-model.bin` | ~155 MB |
+| `wear` APK | Watch client only (no engine, no rootfs) | ~5 MB || `opencode-src` build | Stock `bun build --compile --target=bun-linux-arm64-musl`, unmodified | 197.56 MiB / 207.16 MB |
 
 Distribution is a debug-signed sideload in v1. Signing, versioning, and release procedure are in [03-platform.md](03-platform.md#build-and-release).

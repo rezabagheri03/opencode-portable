@@ -118,13 +118,20 @@ Envelope: `{id, type, created, data, location?: {directory, workspaceID}, metada
 | finished | `session.execution.succeeded` | |
 | failed | `session.execution.failed` | `error` |
 | stopped | `session.execution.interrupted` | `reason: user \| shutdown \| superseded \| inactivity` |
-| **what it is doing** | `session.tool.called` | `name`, `input`, `executed` (`:522`) |
+| **what it is doing** | `session.tool.called` | `id`, `input`, `executed` (`:522`) — **no `name`** |
+| tool name | `session.tool.input.started` | `id`, `name` (`:490-497`) |
 | tool still running | `session.tool.progress` | live `metadata` (ephemeral) |
-| **needs me** | `permission.asked` | full `Permission.Request` (`permission.ts:45`) |
+| **needs me** | `permission.asked` | full `Permission.Request`; the id field is `id`, not `requestID` (`permission.ts:36-39`) |
 | answered | `permission.replied` | `sessionID, requestID, reply` |
 
-**Deriving "editing `auth.ts`"**: switch on `session.tool.called`'s `name` — `edit`/`write` →
-`input.path`, `shell` → `input.command` and `input.workdir`, `grep` → `input.pattern`.
+**Correction (found while wiring the bridge).** `session.tool.called` does **not** carry the tool
+name. The name arrives in the preceding `session.tool.input.started` event, keyed by the same `id`.
+The bridge therefore tracks `id -> name` and uses it to turn `edit` + `{path}` into
+`editing auth.ts`.
+
+**Deriving "editing `auth.ts`"**: track the name from `session.tool.input.started`, then switch on
+`session.tool.called`'s `input` — `edit`/`write` → `input.path`, `shell` → `input.command` and
+`input.workdir`, `grep` → `input.pattern`.
 
 **Caution:** `session.status` and `session.idle` are declared in the schema but the inventory found
 **no publisher in core**. Build the phase machine from `session.execution.*` and

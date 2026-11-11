@@ -44,33 +44,40 @@ mkdir -p app/src/main/assets
 cp "$OUT/rootfs.tar.gz" app/src/main/assets/rootfs.dat
 
 step "unit tests"
-"$GRADLE" :app:testDebugUnitTest --console=plain
+"$GRADLE" :app:testDebugUnitTest :wear:testDebugUnitTest --console=plain
 
 step "assemble ($TASK)"
-"$GRADLE" ":app:$TASK" --console=plain
+"$GRADLE" ":app:$TASK" ":wear:$TASK" --console=plain
 
-step "verify the APK carries the verified rootfs"
+step "verify the APK carries the verified rootfs and engine"
 # `[ … ] && x=…` is not used here: under `set -e` a false test makes the AND-list non-zero,
 # which aborts the script silently right before the checks that actually matter.
 if [ "$TASK" = "assembleRelease" ]; then
   APK="app/build/outputs/apk/release/app-release.apk"
+  WEAR="wear/build/outputs/apk/release/wear-release.apk"
 else
   APK="app/build/outputs/apk/debug/app-debug.apk"
+  WEAR="wear/build/outputs/apk/debug/wear-debug.apk"
 fi
 "$PY" -I tools/rootfs/check_apk_asset.py "$APK" "$OUT/MANIFEST.json"
 
 step "size"
-"$PY" -I - "$APK" <<'PY'
+"$PY" -I - "$APK" "$WEAR" <<'PY'
 import sys, zipfile
 from pathlib import Path
-apk = Path(sys.argv[1])
-with zipfile.ZipFile(apk) as z:
-    rows = sorted(z.infolist(), key=lambda i: -i.file_size)
-    for i in rows:
-        if i.file_size > 200_000 and not i.filename.startswith("META-INF"):
-            print(f"  {i.filename:44} {i.file_size:>13,} raw  {i.compress_size:>13,} stored")
-    print(f"  {'APK total':44} {apk.stat().st_size:>13,}")
+for name, path in (("phone", sys.argv[1]), ("watch", sys.argv[2])):
+    p = Path(path)
+    if not p.is_file():
+        print(f"  {name}: missing {p}")
+        continue
+    with zipfile.ZipFile(p) as z:
+        rows = sorted(z.infolist(), key=lambda i: -i.file_size)
+        for i in rows:
+            if i.file_size > 200_000 and not i.filename.startswith("META-INF"):
+                print(f"  {name} {i.filename:38} {i.file_size:>13,} raw  {i.compress_size:>13,} stored")
+    print(f"  {name} APK total{'':28} {p.stat().st_size:>13,}")
 PY
 
 step "done"
 echo "$APK"
+echo "$WEAR"

@@ -38,11 +38,10 @@ jobs:
         with:
           packages: platform-tools
 
-      # The NDK is deliberately absent: nothing here compiles native code. proot and the engine are
-      # both prebuilt binaries, fetched and hash-checked. It returns only if proot is ever built
-      # from source.
+      # The NDK is needed for the bundled whisper.cpp JNI library. proot and the engine remain
+      # prebuilt, fetched and hash-checked.
       - name: Install SDK packages
-        run: sdkmanager --install "platforms;android-36" "build-tools;36.0.0"
+        run: sdkmanager --install "platforms;android-36" "build-tools;36.0.0" "ndk;30.0.14904198" "cmake;3.22.1"
 
       - name: Cache downloads
         uses: actions/cache@v4
@@ -62,7 +61,9 @@ jobs:
           {
             echo "sha256=$(sha256sum app/build/outputs/apk/debug/app-debug.apk | cut -d' ' -f1)"
             echo "bytes=$(stat -c %s app/build/outputs/apk/debug/app-debug.apk)"
-            echo "rootfs=$(python3 -c "import json;print(json.load(open('dist/rootfs/MANIFEST.json'))['rootfs']['sha256'])")"
+            echo "wear_sha256=$(sha256sum wear/build/outputs/apk/debug/wear-debug.apk | cut -d' ' -f1)"
+            echo "wear_bytes=$(stat -c %s wear/build/outputs/apk/debug/wear-debug.apk)"
+            echo "rootfs=$(python3 -c "import json;print(json.load(open('dist/rootfs/MANIFEST.json'))['rootfs']['tar_sha256'])")"
             echo "engine=$(python3 -c "import json;print(json.load(open('dist/rootfs/MANIFEST.json'))['base']['sha256'])")"
           } >> "$GITHUB_OUTPUT"
 
@@ -73,7 +74,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: opencode-portable-debug-${{ github.sha }}
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            wear/build/outputs/apk/debug/wear-debug.apk
           compression-level: 0
           retention-days: 14
 
@@ -94,10 +97,13 @@ jobs:
             echo
             echo "| | |"
             echo "|---|---|"
-            echo "| APK | \`${{ steps.outputs.outputs.bytes }}\` bytes |"
-            echo "| APK sha256 | \`${{ steps.outputs.outputs.sha256 }}\` |"
-            echo "| rootfs sha256 | \`${{ steps.outputs.outputs.rootfs }}\` |"
+            echo "| Phone APK | \`${{ steps.outputs.outputs.bytes }}\` bytes |"
+            echo "| Phone sha256 | \`${{ steps.outputs.outputs.sha256 }}\` |"
+            echo "| Watch APK | \`${{ steps.outputs.outputs.wear_bytes }}\` bytes |"
+            echo "| Watch sha256 | \`${{ steps.outputs.outputs.wear_sha256 }}\` |"
+            echo "| rootfs tar sha256 | \`${{ steps.outputs.outputs.rootfs }}\` |"
             echo
-            echo "The engine binary is not uploaded: it is hash-checked against the pin in"
-            echo "docs/06-artifact-verification.md §1 on every build, so it is reproducible from npm."
+            echo "The engine binary is not uploaded as a separate artifact: it is hash-checked against"
+            echo "the pin in docs/06-artifact-verification.md §1 on every build, and check_apk_asset.py"
+            echo "asserts the copy inside the APK is still that exact binary."
           } >> "$GITHUB_STEP_SUMMARY"

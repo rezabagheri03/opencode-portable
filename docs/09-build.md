@@ -1,6 +1,6 @@
 # 09 — Build
 
-How the APK is built, locally and in CI. One script, one code path.
+How the phone and watch APKs are built, locally and in CI. One script, one code path.
 
 ---
 
@@ -11,25 +11,41 @@ bash tools/build.sh
 ```
 
 That is the whole build. It fetches and hash-checks the native binaries, builds and verifies the
-rootfs, runs the unit tests, assembles the APK, and then proves the APK carries the rootfs that was
-verified. A green CI run and a working local build cannot drift apart, because
-[.github/workflows/build.yml](../.github/workflows/build.yml) invokes this same script rather than
-reimplementing the steps.
+rootfs, fetches and builds whisper.cpp, runs the unit tests, assembles **both** APKs, and then proves
+the phone APK carries the rootfs and engine that were verified. A green CI run and a working local
+build cannot drift apart, because [.github/workflows/build.yml](../.github/workflows/build.yml)
+invokes this same script rather than reimplementing the steps.
 
-**Requirements:** Python 3.9+, JDK 21, and an Android SDK with platform 36 and build-tools 36. The
-SDK is found through `ANDROID_HOME` or `local.properties`. Everything else is fetched.
+**Requirements:** Python 3.9+, JDK 21, an Android SDK with platform 36 and build-tools 36, **NDK
+30.0.14904198**, and **CMake 3.22.1**. The SDK is found through `ANDROID_HOME` or `local.properties`.
+Everything else is fetched.
 
-Output: `app/build/outputs/apk/debug/app-debug.apk` — **121,180,572 bytes**.
+Outputs:
 
-| Component | Raw | In the APK |
+- `app/build/outputs/apk/debug/app-debug.apk` — **154,812,205 bytes**
+- `wear/build/outputs/apk/debug/wear-debug.apk` — **5,073,985 bytes**
+
+| Component | Raw | In the phone APK |
 |---|---|---|
 | `lib/arm64-v8a/libopencode.so` | 207,162,576 | 104,149,220 (deflated) |
-| `assets/rootfs.dat` | 14,455,551 | 14,455,551 (**stored**) |
-| `classes.dex` | 2,400,296 | 2,400,296 (stored) |
+| `assets/whisper-model.bin` | 32,166,155 | 29,694,287 (deflated) |
+| `assets/rootfs.dat` | 14,455,553 | 14,455,553 (**stored**) |
+| `classes.dex` | 4,576,512 | 4,576,512 (stored) |
+| `lib/arm64-v8a/libwhisper_jni.so` | 2,791,472 | 1,169,118 |
 | `lib/arm64-v8a/libproot.so` | 255,240 | 120,981 |
 
 `classes.dex` is stored rather than deflated because `extractNativeLibs`/`useLegacyPackaging` is on,
-which is what makes `nativeLibraryDir` executable — see [03-platform.md](03-platform.md#1-exec-from-app-data).
+which is what makes `nativeLibraryDir` executable — see
+[03-platform.md](03-platform.md#1-exec-from-app-data).
+
+### Do not strip the engine
+
+AGP's `stripDebugDebugSymbols` runs by default and rewrote `libopencode.so` to 207,096,264 bytes,
+which is not the pinned artifact. `app/build.gradle.kts` keeps debug symbols for
+`**/libopencode.so` only. Keeping `libproot.so` as well produced a 260 MB APK with a 104 MB hole in
+the zip, so proot is allowed to be stripped (its size did not change). `check_apk_asset.py` now
+asserts the engine inside the APK still matches the size and sha256 pin, so this cannot regress
+silently.
 
 ## What is fetched, and why it is not committed
 
@@ -41,10 +57,13 @@ The engine is 198 MB, above GitHub's 100 MB per-file limit, so it cannot live in
 | `libopencode.so` | npm `@opencode/cli-linux-arm64-musl@2.1.1` | **sha256 `e07ad6dd…cf7d7`** — the pin in [06 §1](06-artifact-verification.md#1-artifact-identity) |
 | `libproot.so` | Termux apt, `proot` 5.1.107.98 | per-package sha256 from the signed `Packages` index |
 | `proot-deps.dat` | Termux apt, `libtalloc` + `libandroid-shmem` | same |
+| `whisper.cpp/` source | GitHub tag `v1.9.5` | sha256 `ff1a9053…` |
+| `whisper-model.bin` | Hugging Face, `ggml-tiny.en-q5_1.bin` | sha256 `c77c5766…`, 32,166,155 bytes |
 
-A hash mismatch **fails the build**. This is the point: every measurement in [06](06-artifact-verification.md)
-was taken against that exact binary, so a build that quietly picked up a different opencode version
-would invalidate the document set rather than merely change the output.
+A hash mismatch **fails the build**. This is the point: every measurement in
+[06](06-artifact-verification.md) was taken against that exact engine, so a build that quietly
+picked up a different opencode version would invalidate the document set rather than merely change
+the output.
 
 Two details worth recording:
 
@@ -57,58 +76,53 @@ Two details worth recording:
 `jniLibs`, and `libtalloc.so.2` has none. proot finds them through `LD_LIBRARY_PATH` at exec time
 anyway, not through the app's native library search path.
 
+`whisper.cpp` is built by CMake into one `libwhisper_jni.so`; the model is copied from assets to
+app-private storage on first use. The source and model are gitignored and fetched by the same script.
+
 ## CI
 
 [.github/workflows/build.yml](../.github/workflows/build.yml) — triggered on push to `main`, on pull
 requests, and manually. Runs on `ubuntu-24.04` rather than `ubuntu-latest`: a runner image bump that
 changed the JDK or NDK would otherwise silently change a build whose artifact hashes are pinned.
 
-Steps: checkout → JDK 21 → Python 3.12 → `setup-android` → `sdkmanager` for platform 36 and
-build-tools 36 → restore the download cache → `bash tools/build.sh` → upload artifacts.
+Steps: checkout → JDK 21 → Python 3.12 → `setup-android` → `sdkmanager` for platform 36,
+build-tools 36, **NDK 30.0.14904198 and CMake 3.22.1** → restore the download cache →
+`bash tools/build.sh` → upload both APKs and the rootfs.
 
-**First run: green.** Every step passed and the artifacts uploaded:
-
-| | |
-|---|---|
-| APK | 121,229,540 bytes |
-| rootfs | 14,418,572 bytes |
-| rootfs `tar_sha256` | matches the local Windows build exactly |
-
-Two corrections came out of actually running it:
+The workflow has completed successfully on the previous code. The current native+wear pass has not
+been pushed yet, so its first CI run is still pending. Two earlier corrections are already in:
 
 - `android-actions/setup-android` defaults to `packages: tools platform-tools`, and **`tools` no
   longer exists in the SDK repository**, so the step failed before the build began. It now asks for
   `platform-tools` only.
-- **The NDK is not installed.** Nothing compiles native code — proot and the engine are prebuilt and
-  hash-checked. It was in the original step as an unverified guess and is dropped.
+- The NDK was previously not installed because nothing compiled native code. whisper.cpp changes
+  that; the workflow now installs it and CMake.
 
-The APK size differs from a local build by ~49 KB because the debug keystore and `apksigner` differ
-per machine; the content is what is verified, not the APK bytes. See
+The APK size differs from a local build by a few tens of KB because the debug keystore and
+`apksigner` differ per machine; the content is what is verified, not the APK bytes. See
 [08-rootfs.md](08-rootfs.md#the-pipeline) for why the `.tar.gz` bytes legitimately differ too.
 
 The download cache is keyed on `tools/fetch_binaries.py` and `tools/rootfs/build.py`, so it is
-invalidated when either the pin or the package set changes. A cold fetch takes ~50 seconds.
+invalidated when a pin or the package set changes. A cold fetch is about 50 seconds for the engine;
+the whisper model adds ~30 MB.
 
-Artifacts: the APK (14 days) and the rootfs plus `MANIFEST.json` and `THIRD_PARTY_LICENSES.md`
-(30 days). The job summary records the APK hash, the rootfs hash, and the APK size.
+Artifacts: both APKs (14 days) and the rootfs plus `MANIFEST.json` and
+`THIRD_PARTY_LICENSES.md` (30 days). The job summary records both APK hashes, the rootfs tar hash,
+and the APK sizes. The earlier `['rootfs']['sha256']` key was wrong — the manifest has
+`tar_sha256`/`gz_sha256`; the step now reads `tar_sha256` and no longer reports blank hashes.
 
 ## Status
 
 **Verified locally.** The script runs clean from a deleted `app/build/` and `.cache/`, on Windows
-with Git Bash, JDK 21, and no Docker. The rootfs is byte-identical across rebuilds, and the APK asset
-check passes.
+with Git Bash, JDK 21, and no Docker. The rootfs is byte-identical across same-index rebuilds, the
+APK asset check passes, and the engine inside the APK is still the pinned binary. 43 unit tests pass
+(1 POSIX-only skip).
 
-**CI has not run.** This project is not yet a git repository and `gh` is not authenticated here, so
-the workflow is written but unexecuted. Two things remain unproven until it does:
+**Not verified on hardware.** No device was attached during this pass. P0 is still 0/8.
 
-- that `sdkmanager` accepts `ndk;30.0.14904198` on the runner — the NDK is not used by the build yet
-  (it would only be needed to compile proot from source), so it can be dropped if it is slow or
-  unavailable;
-- that the ~121 MB upload artifact behaves within the runner's limits.
-
-Also note: the app has **no signing config for release** beyond reusing the debug keystore
+**Signing is debug-only.** The app has no release signing config beyond reusing the debug keystore
 (`app/build.gradle.kts`), which is deliberate for a sideloaded personal build and is not a shippable
-configuration.
+configuration. P4-4 is the release-signing task.
 
 ## Reproducing a released APK
 
@@ -119,7 +133,9 @@ bash tools/build.sh
 sha256sum app/build/outputs/apk/debug/app-debug.apk
 ```
 
-The rootfs is reproducible; the APK is not bit-identical across machines, because `apksigner` and the
-debug keystore differ. What is checkable is the content: `check_apk_asset.py` proves the rootfs in the
-APK matches `dist/rootfs/MANIFEST.json`, and `fetch_binaries.py --check` proves the staged engine
-matches the pin without re-downloading it.
+The **engine** is bit-reproducible from its npm pin. The rootfs tar is reproducible across hosts at a
+given Alpine package index, but `build.py` resolves `APKINDEX`, so a package refresh changes it;
+`dist/rootfs/MANIFEST.json` records what was actually shipped. The APK is not bit-identical across
+machines because `apksigner` and the debug keystore differ. What is checkable is the content:
+`check_apk_asset.py` proves the rootfs and engine in the APK match their pins, and
+`fetch_binaries.py --check` proves the staged files match without re-downloading.

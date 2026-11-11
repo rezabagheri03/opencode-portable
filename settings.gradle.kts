@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "opencode-portable"
 include(":app")
+include(":wear")

@@ -18,8 +18,10 @@ import java.util.zip.GZIPInputStream
  */
 class RootfsReaderTest {
 
-    private val archive = File(System.getProperty("user.dir")).parentFile
-        .resolve("dist/rootfs/rootfs.tar.gz")
+    private val archive: File = File(System.getProperty("user.dir") ?: ".")
+        .parentFile
+        ?.resolve("dist/rootfs/rootfs.tar.gz")
+        ?: File("dist/rootfs/rootfs.tar.gz")
 
     private fun extractTo(dir: File): File {
         try {

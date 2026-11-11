@@ -52,10 +52,11 @@ These are believed but not yet proven. Each one has a task in [TODO.md](../TODO.
 | A-1 | The stock `bun-linux-arm64-musl` binary runs inside an Alpine proot without modification | R-01 fires; a rebuild or a different run strategy is needed |
 | A-2 | proot's `ptrace` use is permitted for an app tracing its own children on this device | Root would be required — the project becomes a different, much smaller product |
 | A-3 | The free model tier works without an account from a fresh install | The zero-config first run fails; onboarding returns |
-| A-4 | ~~The Kotlin bridge can derive watch-worthy state from the engine's existing SSE stream~~ **Confirmed from source** 2026-10-21 — `session.execution.*`, `session.tool.called`, `permission.asked` carry everything the watch screens need. See [07-engine-api.md](07-engine-api.md#4-event-stream) | Not needed; no upstream patch to the engine is required for the watch |
+| A-4 | ~~The Kotlin bridge can derive watch-worthy state from the engine's existing SSE stream~~ **Confirmed from source** 2026-10-21, **corrected 2026-11-11**: `session.execution.*`, `session.tool.input.started` (the tool name), `session.tool.called` (the input), and `permission.asked` carry everything the watch screens need. See [07-engine-api.md](07-engine-api.md#4-event-stream) | Not needed; no upstream patch to the engine is required for the watch |
 | A-5 | `ChannelClient` throughput between this phone and this watch is enough for a compressed clip | R-05 fires; audio must be reduced further or the watch becomes text-only |
-| A-6 | ~~A 270 MB debug APK installs via `adb install` without timeout or storage issues~~ **Dissolved** — the APK is ~125 MiB, because the binary is stored deflated inside the APK and the installer extracts it | Not needed; no AAB and no split-install path |
+| A-6 | ~~A 270 MB debug APK installs via `adb install` without timeout or storage issues~~ **Dissolved** — the APK is ~155 MiB, because the binary is stored deflated inside the APK and the installer extracts it; the whisper model adds ~30 MiB | Not needed; no AAB and no split-install path |
 | A-7 | The watch has no usable on-device speech recognizer, so audio must be shipped to the phone | The entire audio pipeline disappears — which would be a *good* surprise |
+| A-8 | whisper.cpp `tiny.en-q5_1` transcribes a 10 s clip in under 5 s on the S20 FE | The model is too slow for the watch loop; escalate to a smaller model, a shorter clip cap, or watch-side STT. Unmeasured until P2-3/P3-0 |
 
 ---
 
@@ -67,13 +68,14 @@ Not yet answerable from documentation. Each becomes a P0 or P3 task.
 2. ~~Which shared libraries does the binary dynamically link against?~~ **Answered** — it is *not* self-contained: `PT_INTERP = /lib/ld-musl-aarch64.so.1`, `DT_NEEDED = libc.musl-aarch64.so.1, libstdc++.so.6`. The rootfs must therefore provide a `libstdc++` package, and the binary cannot run outside a musl tree at all. [06 §3](06-artifact-verification.md#3-is-it-self-contained-no-v)
 3. ~~What are the exact HTTP/API endpoints the web GUI uses for session state, event streaming, and permission responses?~~ **Answered** — read from source rather than observed: the GUI uses the generated typed client (`packages/client/src/promise/generated/client.ts`), and the watch-relevant subset is in [07-engine-api.md](07-engine-api.md). The permission reply is `POST /api/session/:id/permission/:requestID/reply` with `once|always|reject`.
 4. ~~Does the API support a non-browser client cleanly?~~ **Answered — yes.** `Authorization: Basic` works on every endpoint, and CORS allows any request with no `Origin` header (`packages/server/src/cors.ts:11-12`). Bearer tokens are *not* supported. [07 §1](07-engine-api.md#1-authentication)
-5. **How much RAM does the engine actually use** while idle and during a task on this phone?
+5. **How much RAM does the engine actually use** while idle and during a task on this phone? The bundled whisper model adds ~32 MB of file-backed memory when first loaded.
 6. **Does the device's `SpeechRecognizer` exist and work offline** on the S20 FE, and where is its offline model configured?
-7. **Does the Watch 4 have a usable third-party speech recognizer?** If yes, the whole audio pipeline is unnecessary — the highest-value question in the project.
-8. **What is the real `ChannelClient` throughput** on this pair, and how does it behave with the phone on cellular versus Wi-Fi?
+7. **Does the Watch 4 have a usable third-party speech recognizer?** If yes, the watch can send text and skip the audio path — the highest-value question in the project. The watch app now uses that recognizer when present, and falls back to µ-law audio + whisper when not.
+8. **What is the real `ChannelClient` throughput** on this pair, and how does it behave with the phone on cellular versus Wi-Fi? The µ-law path is implemented at 8 KB/s; P3-0 measures it.
 9. **Does Android MediaCodec expose an Opus encoder** on these devices, or must `libopus` be bundled?
 10. **Can the TUI renderer (`@opentui/*`) be excluded** from a Bun compile without breaking the build? Determines whether the P4 lean build is real.
 11. **Does the watch stay connected when the phone screen is off and the app is backgrounded?** The most likely P3 surprise.
+12. **How fast is whisper on the S20 FE?** The JNI/model path is built but not benchmarked; A-8.
 
 ---
 
@@ -88,6 +90,8 @@ Short version: **personal use is fine; sharing needs care.**
 | **git** *(if bundled in the rootfs)* | **GPL-2.0** | none | same as above |
 | Alpine packages | mixed (mostly MIT/BSD, some GPL) | none | per-package |
 | Bun runtime *(inside the binary)* | MIT | none | include the notice |
+| **whisper.cpp** | **MIT** | include the notice | include the notice |
+| **ggml-tiny.en-q5_1 model** | MIT (OpenAI Whisper) | include the notice | include the notice |
 | Play services client library | proprietary | none (normal app dependency) | normal app dependency terms |
 | Android app code | yours | — | — |
 

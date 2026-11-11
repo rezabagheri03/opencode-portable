@@ -1,8 +1,10 @@
 package com.rs.ocportable
 
 import android.content.Context
+import java.io.FilterInputStream
 import java.io.File
-import java.io.FileInputStream
+import java.io.InputStream
+import java.nio.file.Files
 import java.util.zip.GZIPInputStream
 
 /**
@@ -12,6 +14,11 @@ import java.util.zip.GZIPInputStream
  * engine starts, finds a broken `/bin/sh`, and fails with an error that points at proot rather than
  * at an interrupted extraction. So extraction goes to a scratch directory and is only moved into
  * place once complete, and a marker file records which build produced it.
+ *
+ * Every shell check here deliberately avoids `File.exists()` on `bin/sh`: the archive stores it as
+ * a symlink to the absolute *guest* path `/bin/busybox`, which Java would resolve against the
+ * Android host. On stock Android that path does not exist, so `exists()` would report false after a
+ * perfectly good extraction and re-extract on every launch.
  */
 class RootfsManager(
     private val filesDir: File,
@@ -26,8 +33,10 @@ class RootfsManager(
     enum class State {
         /** No rootfs and nothing to do yet. */
         Absent,
+
         /** A complete, stamped rootfs matching this build. */
         Ready,
+
         /** Present but from another build, or stamped but damaged. */
         Stale,
     }
@@ -36,15 +45,19 @@ class RootfsManager(
     private val stamp = File(rootfs, STAMP)
     private val staging = File(filesDir, "rootfs.staging")
 
+    val directory: File get() = rootfs
+
     /**
-     * A rootfs is usable only if the marker says it came from this build *and* the shell it needs
-     * is actually there. The second check catches an extraction killed between the last member and
-     * the stamp write, and any post-hoc corruption.
+     * A rootfs is usable only if the marker says it came from this build *and* the files the
+     * engine needs are actually there. `/bin/busybox` is a real file; `/bin/sh` is a guest-absolute
+     * symlink, so it is checked without following it.
      */
     fun state(): State {
         if (!stamp.isFile) return if (rootfs.exists()) State.Stale else State.Absent
         if (stamp.readText().trim() != BuildConfig.ROOTFS_SHA256) return State.Stale
-        return if (File(rootfs, "bin/sh").exists() && File(rootfs, "etc/alpine-release").isFile) {
+        val shell = File(rootfs, "bin/sh")
+        val shellOk = Files.isSymbolicLink(shell.toPath()) || shell.isFile
+        return if (File(rootfs, "bin/busybox").isFile && File(rootfs, "etc/alpine-release").isFile && shellOk) {
             State.Ready
         } else {
             State.Stale
@@ -56,20 +69,25 @@ class RootfsManager(
      *
      * @param openAsset supplies the asset stream; injected so this can be tested without Android.
      */
-    fun ensure(openAsset: () -> java.io.InputStream) {
+    fun ensure(openAsset: () -> InputStream) {
         if (state() == State.Ready) return
 
         staging.deleteRecursively()
         staging.mkdirs()
         try {
+            val total = assetBytes()
             openAsset().use { raw ->
-                GZIPInputStream(raw, 64 * 1024).use { gz ->
-                    RootfsReader(gz, staging) { done, total ->
-                        onProgress(Progress(done, total))
-                    }.withTotal(assetBytes()).extract()
+                val counter = CountingInputStream(raw)
+                GZIPInputStream(counter, 64 * 1024).use { gz ->
+                    RootfsReader(gz, staging) { _, _ ->
+                        onProgress(Progress(counter.count, total))
+                    }.extract()
                 }
             }
-            require(File(staging, "bin/sh").exists()) { "archive produced no /bin/sh" }
+            // Never use exists() here: see the class comment.
+            require(File(staging, "bin/busybox").isFile) { "archive produced no /bin/busybox" }
+            val shell = File(staging, "bin/sh")
+            require(Files.isSymbolicLink(shell.toPath()) || shell.isFile) { "archive produced no /bin/sh" }
 
             // Replace atomically-ish: the old tree is only removed once the new one is complete.
             val previous = File(filesDir, "rootfs.old")
@@ -79,6 +97,7 @@ class RootfsManager(
             previous.deleteRecursively()
 
             stamp.writeText(BuildConfig.ROOTFS_SHA256)
+            onProgress(Progress(total, total))
         } catch (e: Throwable) {
             // Leave nothing half-written for the next launch to trust.
             staging.deleteRecursively()
@@ -89,14 +108,32 @@ class RootfsManager(
     /** Whether a first-run extraction would actually have work to do. */
     fun needsExtraction(): Boolean = state() != State.Ready
 
+    private class CountingInputStream(input: InputStream) : FilterInputStream(input) {
+        var count: Long = 0
+            private set
+
+        override fun read(): Int {
+            val value = super.read()
+            if (value >= 0) count++
+            return value
+        }
+
+        override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+            val read = super.read(buffer, offset, length)
+            if (read > 0) count += read
+            return read
+        }
+    }
+
     companion object {
         private const val STAMP = ".stamp"
 
-        fun forApp(context: Context): RootfsManager {
+        fun forApp(context: Context, onProgress: (Progress) -> Unit = {}): RootfsManager {
             val assets = context.assets
             return RootfsManager(
                 filesDir = context.filesDir,
                 assetBytes = { assets.openFd(ASSET).use { it.length } },
+                onProgress = onProgress,
             )
         }
 

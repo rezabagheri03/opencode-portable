@@ -13,7 +13,13 @@ The work, in order. Every task has an acceptance criterion, because "done" that 
 3. When a task converts an assumption into evidence, **update the `[V]`/`[I]` label** in the design docs in the same commit. Stale labels are worse than none.
 4. If a **kill criterion** trips, stop the phase and re-read [05-risks.md](docs/05-risks.md#what-would-make-me-stop-recommending-this) before writing more code.
 
-**Legend:** `[V]` verified · `[I]` inferred · `[?]` open question · `→` depends on
+**Legend:** `[V]` verified · `[I]` inferred · `[?]` open question · `✅` done on host · `◐` implemented, awaiting device verification · `☐` not started · `→` depends on
+
+---
+
+## Current state (2026-11-11)
+
+The code path is complete through P1/P2/P3 except for the pieces that require a device. **P0 is still 0/8 and is still the gate.** The known code blockers from the first code review (no launcher activity, the guest-symlink check, the `env -u` bug, missing proot deps/engine staging) are fixed. Unit tests are green (43 tests, 1 POSIX-only skip), and both APKs assemble. See [_p0/LOG.md](_p0/LOG.md) for the pass notes.
 
 ---
 
@@ -128,13 +134,13 @@ Everything else waits.
 | P1-1 ✅ | Gradle project skeleton | `assembleDebug` produces an APK; `minSdk` 31, `arm64-v8a` only, `extractNativeLibs=true` | — | 1 d |
 | P1-2 ◐ | Package binaries as native libs | `libopencode.so` and `libproot.so` in `jniLibs/`; both exec successfully from `nativeLibraryDir` on device | P1-1 | 1 d |
 | P1-3 ✅ | Rootfs build pipeline | A Docker script emits `rootfs.tar.gz` reproducibly; `apk info` output is saved as `THIRD_PARTY_LICENSES.md` | P0-1 | 2 d |
-| P1-4 ✅ | First-run extraction | Fresh install extracts the rootfs with visible progress; second launch skips it; a corrupted extraction is detected and redone | P1-3 | 1 d |
-| P1-5 | FGS + engine launch | `specialUse` FGS spawns proot→`opencode serve` **on the fixed port 4096 with a generated `OPENCODE_PASSWORD`** ([ADR-012](docs/04-decisions.md#adr-012)); health poll reports ready; child stderr is visible in the UI on failure | P1-2, P1-4 | 3 d |
-| P1-6 | WebView host | GUI loads on device at `http://127.0.0.1:4096/?auth_token=…`, so settings and drafts survive relaunch; dark background before load (no white flash); no cleartext error; Android back navigates the UI; the [three hooks](docs/03-platform.md#three-webview-hooks-a-browser-does-not-need) are wired (file chooser, permission grant, media gesture) | P1-5 | 3 d |
-| P1-7 | Lifecycle | App backgrounded for 30 min → foreground → still working; engine death → auto-restart + WebView reload; explicit Quit stops the child cleanly | P1-5 | 2 d |
-| P1-8 | Workspace | Default private workspace exists; "import a folder from storage" copies it in; the agent can read/write inside it | P1-7 | 2 d |
-| P1-9 | Mobile CSS pass | The [six tells](docs/03-platform.md#webview-feel) are fixed in a patch; composer usable with the keyboard open; nothing under the notch | P1-6 | 3 d |
-| P1-10 | **MVP acceptance** | Fresh install → first answer in **60 s** → ask it to edit a file → diff renders → no config, no dialogs at launch | all | 1 d |
+| P1-4 ◐ | First-run extraction | Fresh install extracts the rootfs with visible progress; second launch skips it; a corrupted extraction is detected and redone | P1-3 | 1 d |
+| P1-5 ◐ | FGS + engine launch | `specialUse` FGS spawns proot→`opencode serve` **on the fixed port 4096 with a generated `OPENCODE_PASSWORD`** ([ADR-012](docs/04-decisions.md#adr-012)); health poll reports ready; child stderr is visible in the UI on failure | P1-2, P1-4 | 3 d |
+| P1-6 ◐ | WebView host | GUI loads on device at `http://127.0.0.1:4096/?auth_token=…`, so settings and drafts survive relaunch; dark background before load (no white flash); no cleartext error; Android back navigates the UI; the [three hooks](docs/03-platform.md#three-webview-hooks-a-browser-does-not-need) are wired (file chooser, permission grant, media gesture) | P1-5 | 3 d |
+| P1-7 ◐ | Lifecycle | App backgrounded for 30 min → foreground → still working; engine death → auto-restart + WebView reload; explicit Quit stops the child cleanly | P1-5 | 2 d |
+| P1-8 ◐ | Workspace | Default private workspace exists; "import a folder from storage" copies it in; the agent can read/write inside it | P1-7 | 2 d |
+| P1-9 ◐ | Mobile CSS pass | The [six tells](docs/03-platform.md#webview-feel) are fixed in a patch; composer usable with the keyboard open; nothing under the notch | P1-6 | 3 d |
+| P1-10 ☐ | **MVP acceptance** | Fresh install → first answer in **60 s** → ask it to edit a file → diff renders → no config, no dialogs at launch | all | 1 d |
 
 ---
 
@@ -144,15 +150,15 @@ Everything else waits.
 
 | ID | Task | Done when | → | Est |
 |---|---|---|---|---|
-| P2-1 | Permissions in the GUI | A command needing approval prompts in the UI; approve runs it; deny reports cleanly; the prompt is legible on a phone | P1-10 | 1 d |
-| P2-2 | Voice bridge + mic button | A composer mic button starts native STT; partial words stream in; release settles the text; **nothing auto-sends**. Only the capture half is new — upstream already renders voice-originated prompts and already exposes a server-brokered realtime voice route ([ADR-005](docs/04-decisions.md#adr-005)) | P1-9 | 3 d |
-| P2-3 | Offline STT model | The bundled model transcribes a 10 s utterance in under 5 s, driven from a PCM buffer rather than the microphone. **Hard prerequisite for P3, not an optional fallback** — Android's recognizer cannot transcribe a buffer ([ADR-005](docs/04-decisions.md#adr-005)) | P2-2 | 4 d |
-| P2-4 | Git works | The agent makes a commit inside the workspace; the diff view renders; the snapshot index does not corrupt (no `/sdcard`) | P1-8 | 2 d |
-| P2-5 | Battery-optimisation flow | A single explained prompt offers the exemption; declining leaves the app functional but warns about backgrounding | P1-7 | 1 d |
-| P2-6 | Session persistence | Kill the app, relaunch, previous session is intact and continues where it left off | P1-7 | 2 d |
-| P2-7 | Decision notifications | A pending decision raises a local notification even when the app is backgrounded; tapping opens the prompt | P2-1 | 1 d |
-| P2-8 | Stability pass | 1 hour of mixed use: no ANR, no OOM, no orphaned proot process after Quit; peak RSS recorded | P2-6 | 3 d |
-| P2-9 | **Usable acceptance** | All of [v1's definition-of-done rows 1–6 and 8](docs/01-product.md#definition-of-done--v1) pass on device | all | 1 d |
+| P2-1 ◐ | Permissions in the GUI | A command needing approval prompts in the UI; approve runs it; deny reports cleanly; the prompt is legible on a phone | P1-10 | 1 d |
+| P2-2 ◐ | Voice bridge + mic button | A composer mic button starts native STT; partial words stream in; release settles the text; **nothing auto-sends**. Implemented as a native floating mic over the WebView plus a JS composer setter, because the stock engine is not rebuilt ([ADR-013](docs/04-decisions.md#adr-013)) | P1-9 | 3 d |
+| P2-3 ◐ | Offline STT model | The bundled model transcribes a 10 s utterance in under 5 s, driven from a PCM buffer rather than the microphone. Bundled: whisper.cpp 1.9.5 + `ggml-tiny.en-q5_1` (32 MB), JNI wrapper, µ-law decode/upsample. **[I]** speed on the S20 FE is unmeasured | P2-2 | 4 d |
+| P2-4 ☐ | Git works | The agent makes a commit inside the workspace; the diff view renders; the snapshot index does not corrupt (no `/sdcard`) | P1-8 | 2 d |
+| P2-5 ◐ | Battery-optimisation flow | A single explained prompt offers the exemption; declining leaves the app functional but warns about backgrounding | P1-7 | 1 d |
+| P2-6 ☐ | Session persistence | Kill the app, relaunch, previous session is intact and continues where it left off | P1-7 | 2 d |
+| P2-7 ◐ | Decision notifications | A pending decision raises a local notification even when the app is backgrounded; tapping opens the prompt | P2-1 | 1 d |
+| P2-8 ☐ | Stability pass | 1 hour of mixed use: no ANR, no OOM, no orphaned proot process after Quit; peak RSS recorded | P2-6 | 3 d |
+| P2-9 ☐ | **Usable acceptance** | All of [v1's definition-of-done rows 1–6 and 8](docs/01-product.md#definition-of-done--v1) pass on device | all | 1 d |
 
 ---
 
@@ -163,15 +169,15 @@ Everything else waits.
 | ID | Task | Done when | → | Est |
 |---|---|---|---|---|
 | **P3-0** | **Measure the transport** | On the real pair: (a) a 320 KB payload crosses `ChannelClient` and the wall-clock seconds are recorded; (b) `MessageClient` round-trip latency recorded; (c) **tested whether the watch has a usable third-party speech recognizer**. Results written into [05-risks.md](docs/05-risks.md#open-questions) as answers 7 and 8 | P0-7 | 1 d |
-| P3-1 | Enumerate the engine API from traffic | Every request the web GUI makes is documented in `docs/06-api.md`: method, path, payload, and how permission responses and event streaming work. Questions 3 and 4 answered | P1-10 | 2 d |
-| P3-2 | Wear module skeleton | A `wear` module builds a standalone Wear APK that installs on the Watch 4 over ADB and runs | P1-1 | 2 d |
-| P3-3 | Node discovery | `CapabilityClient` finds exactly one phone node; ambiguity is resolved by a chooser; **no pairing code, no IP address, nothing to type** | P3-2 | 2 d |
-| P3-4 | Status screen | Watch shows session activity within 2 s of the agent changing activity; status messages throttled to ≤1 Hz; scrolling shows recent history | P3-3 | 3 d |
-| P3-5 | Decision screen + approve/deny | A pending command appears with its **full text**; Approve and Deny both work via `MessageClient`; whichever surface answers first dismisses the other; the pending decision survives a watch reconnect via `DataItem` | P3-4 | 3 d |
-| P3-6 | Push-to-talk | Hold records; release sends a compressed clip over `ChannelClient`; the transcript lands in the phone's composer for review. Encoding chosen from P3-0's measurement | P3-0, P2-3 | 4 d |
-| P3-7 | Haptics | A pending decision produces one haptic buzz and never repeats; completion is a distinct, lighter pattern | P3-5 | 1 d |
-| P3-8 | Reconnect and degrade | Bluetooth lost or watch out of range: the watch says "disconnected" rather than showing stale state, reconnects automatically, and the phone is entirely unaffected. Works with the phone on cellular | P3-3 | 2 d |
-| P3-9 | **Watch acceptance** | [User stories 7–12](docs/01-product.md#user-stories) pass with the phone in a pocket **and Wi-Fi off** | all | 1 d |
+| P3-1 ◐ | Enumerate the engine API from traffic | Every request the web GUI makes is documented in `docs/06-api.md`: method, path, payload, and how permission responses and event streaming work. Questions 3 and 4 answered. Source enumeration is in [07-engine-api.md](docs/07-engine-api.md); traffic capture is still a device task | P1-10 | 2 d |
+| P3-2 ◐ | Wear module skeleton | A `wear` module builds a standalone Wear APK that installs on the Watch 4 over ADB and runs | P1-1 | 2 d |
+| P3-3 ◐ | Node discovery | `CapabilityClient` finds exactly one phone node; ambiguity is resolved by a chooser; **no pairing code, no IP address, nothing to type** | P3-2 | 2 d |
+| P3-4 ◐ | Status screen | Watch shows session activity within 2 s of the agent changing activity; status messages throttled to ≤1 Hz; scrolling shows recent history | P3-3 | 3 d |
+| P3-5 ◐ | Decision screen + approve/deny | A pending command appears with its **full text**; Approve and Deny both work via `MessageClient`; whichever surface answers first dismisses the other; the pending decision survives a watch reconnect via `DataItem` | P3-4 | 3 d |
+| P3-6 ◐ | Push-to-talk | Hold records; release sends a compressed clip over `ChannelClient`; the transcript lands in the phone's composer for review. Implemented with 8 kHz µ-law and the bundled whisper model; P3-0 still decides the final encoding | P3-0, P2-3 | 4 d |
+| P3-7 ◐ | Haptics | A pending decision produces one haptic buzz and never repeats; completion is a distinct, lighter pattern | P3-5 | 1 d |
+| P3-8 ◐ | Reconnect and degrade | Bluetooth lost or watch out of range: the watch says "disconnected" rather than showing stale state, reconnects automatically, and the phone is entirely unaffected. Works with the phone on cellular | P3-3 | 2 d |
+| P3-9 ☐ | **Watch acceptance** | [User stories 7–12](docs/01-product.md#user-stories) pass with the phone in a pocket **and Wi-Fi off** | all | 1 d |
 
 ---
 
@@ -210,10 +216,10 @@ Everything else waits.
 | Phase | Tasks | Done |
 |---|---|---|
 | P0 Spikes | 8 | 0 |
-| P1 MVP | 10 | 3 (P1-1 ✅, P1-3 ✅, P1-4 ✅, P1-2 ◐ launcher written, needs device) |
-| P2 Usable | 9 | 0 |
-| P3 Watch | 10 | 0 |
+| P1 MVP | 10 | 3 done, 6 implemented awaiting device (P1-2 is partial) |
+| P2 Usable | 9 | 0 done, 5 implemented awaiting device |
+| P3 Watch | 10 | 0 done, 8 implemented awaiting device |
 | P4 Lean | 5 | 0 |
-| **Total** | **42** | **0** |
+| **Total** | **42** | **0 verified end-to-end; 22 code paths implemented** |
 
 Update this table when a phase gate passes, not per task.

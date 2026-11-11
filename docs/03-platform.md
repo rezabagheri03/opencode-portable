@@ -18,7 +18,7 @@ Two consequences of the S20 FE's Android 13 + 4 KB pages:
 - **The 16 KB alignment requirement does not apply to you.** It is a Play Store submission rule for Android 15+ hardware; it never blocks installation on this phone. It becomes real only if you later publish.
 - Android 13 supports everything in this design, including `specialUse` foreground services.
 
-Minimum supported: `minSdk` 31 (Android 12). Target `targetSdk` 34 for the sideload build — high enough for modern behaviour, low enough to avoid the FGS and page-size pressure that only matters for distribution.
+Minimum supported: `minSdk` 31 (Android 12). Target `targetSdk` 36 for the sideload build — high enough for modern behaviour, low enough to avoid the FGS and page-size pressure that only matters for distribution.
 
 ---
 
@@ -192,9 +192,9 @@ passes; the permission grant is the only missing piece.
 
 **Do not patch `index.html` to add a bridge.** The served CSP hashes the one inline script that page
 carries (`oc-theme-preload-script`, see `packages/cli/src/services/web-ui.ts`), so editing that file
-invalidates the hash and the UI fails to boot under its own policy. The native bridge goes in with
-`addJavascriptInterface`, which exposes `window.*` to every page without touching a byte of the
-served HTML.
+invalidates the hash and the UI fails to boot under its own policy. The bridge is installed after
+load with `WebView.evaluateJavascript` (or `addJavascriptInterface` if a page-to-native call is
+needed), which leaves the served HTML byte-for-byte untouched.
 
 
 ---
@@ -208,8 +208,9 @@ served HTML.
 | `FOREGROUND_SERVICE` + `..._SPECIAL_USE` | install | Keep the engine alive |
 | `WAKE_LOCK` | install | Survive screen-off during a task |
 | `POST_NOTIFICATIONS` | second launch | FGS notification, watch-free decisions |
-| `RECORD_AUDIO` | first mic tap | Voice input |
-| `BLUETOOTH_CONNECT` | install (API 31+) | Data Layer to the watch, both apps |
+| `RECORD_AUDIO` | first mic tap | Voice input, phone and watch |
+| `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` | first explained prompt after a successful start | Doze keeps cutting the model connection |
+| `BLUETOOTH_CONNECT` | second launch on API 31+ | Data Layer to the watch, both apps |
 | `QUERY_ALL_PACKAGES` | **never** | Not needed, and a Play landmine |
 
 Startup must never show a dialog. US-1 depends on it.
@@ -227,10 +228,12 @@ The one non-obvious dependency: **Google Play services must be present on both d
 | Need | Version | Note |
 |---|---|---|
 | JDK | 21 | Gradle requirement |
-| Android SDK | API 34 platform + build-tools | Studio or cmdline-tools |
+| Android SDK | API 36 platform + build-tools 36 | Studio or cmdline-tools |
 | Gradle / AGP | current stable | Kotlin DSL |
-| NDK | **only if** building proot from source | A prebuilt proot is fine for P0 |
+| NDK | **30.0.14904198** | required for the bundled whisper.cpp JNI library |
+| CMake | **3.22.1** | SDK CMake; AGP drives it |
 | Docker or WSL2 | any | To build the Alpine rootfs reproducibly |
+| Python | 3.9+ | Fetch, rootfs builder, verification |
 
 ### Rootfs preparation (host-side, once)
 
@@ -252,10 +255,10 @@ Alpine's base image has no `libstdc++`, so without that package the engine dies 
 
 Result: ~16 MB compressed, ~45 MB unpacked. Shipped as an asset, extracted on first run to `files/rootfs/`.
 
-**Built and verified 2026-10-21.** The pipeline is `tools/rootfs/rebuild.sh`; see
-[08-rootfs.md](08-rootfs.md) for what it does and the two aapt traps it works around. Measured:
-**14,455,551 bytes compressed, 1,636 members, 36 packages, 520 symlinks**, byte-identical across
-rebuilds. `ripgrep` 15.1.0 resolves at `usr/bin/rg`.
+**Built and verified 2026-11-11.** The pipeline is `tools/rootfs/rebuild.sh`; see
+[08-rootfs.md](08-rootfs.md) for what it does and the three traps it works around. Measured:
+**14,455,553 bytes compressed, 1,629 tar members (1,627 unique paths), 36 packages, 520 symlinks**,
+byte-identical across same-index rebuilds. `ripgrep` 15.1.0 resolves at `usr/bin/rg`.
 
 Three points the recipe above gets wrong or leaves implicit:
 
@@ -276,20 +279,20 @@ Three points the recipe above gets wrong or leaves implicit:
 
 ### The engine binary
 
-Stock release artifact, or built from source with the patches in [02-architecture.md](02-architecture.md#upstream-patches-required):
+Stock release artifact (no source patches are used in the current build):
 
 ```bash
 bun build --compile --target=bun-linux-arm64-musl packages/cli/src/index.ts --outfile opencode
 ```
 
-Then renamed to `libopencode.so` and placed at `app/src/main/jniLibs/arm64-v8a/`. It is 207,162,576 bytes (197.6 MiB) — the dominant term — but stored **deflated** (~96 MiB) inside the APK, because `extractNativeLibs="true"` lets the installer extract it on install.
+Then renamed to `libopencode.so` and placed at `app/src/main/jniLibs/arm64-v8a/`. It is 207,162,576 bytes (197.6 MiB) — the dominant term — but stored **deflated** (~104 MiB) inside the APK, because `extractNativeLibs="true"` lets the installer extract it on install. AGP must not strip it; see [09-build.md](09-build.md#do-not-strip-the-engine).
 
 ### Packaging
 
 | Setting | Value | Why |
 |---|---|---|
 | `minSdk` | 31 | Modern APIs, no legacy paths |
-| `targetSdk` | 34 | See device matrix |
+| `targetSdk` | 36 | See device matrix |
 | `abiFilters` | `arm64-v8a` only | The device is arm64; emulator builds are separate debug variants |
 | `extractNativeLibs` | `true` | Required to exec |
 | ABI splits | Yes, for the watch | Watch APK must not carry the 197.6 MiB binary |
@@ -326,16 +329,17 @@ The watch app declares:
 
 | Item | In the APK | Installed |
 |---|---|---|
-| opencode binary, deflated inside `lib/arm64-v8a/libopencode.so` | ~96 MiB | 197.6 MiB |
-| Alpine rootfs incl. `libstdc++`, `git`, `ripgrep` (compressed) | ~16 MiB | ~45 MiB |
-| proot | <1 MiB | ~1 MiB |
+| opencode binary, deflated inside `lib/arm64-v8a/libopencode.so` | ~104 MiB | 197.6 MiB |
+| Alpine rootfs incl. `libstdc++`, `git`, `ripgrep` (compressed) | ~14.5 MiB | ~36 MiB tar / ~45 MiB unpacked |
+| proot + deps | <1 MiB | ~1 MiB |
 | Kotlin app + WebView + resources | ~12 MiB | ~12 MiB |
-| Offline STT model *(optional, but required for the watch)* | ~40 MiB | ~40 MiB |
-| **Total** | **~125 MiB / ~130 MB** | **~295 MiB / ~310 MB** |
+| whisper.cpp JNI | ~1.2 MiB | ~2.8 MiB |
+| `ggml-tiny.en-q5_1` model | ~29.7 MiB | 32.2 MiB |
+| **Total** | **~155 MiB / ~155 MB** | **~290 MiB / ~300 MB** |
 
 A `.so` may be stored **deflated** in the APK as long as `extractNativeLibs="true"`; the installer
-extracts it to `nativeLibraryDir` on install. So the 197.6 MiB binary costs ~96 MiB of download and
-costs zero extra code — no custom extraction step. That is what makes a ~125 MiB APK possible
+extracts it to `nativeLibraryDir` on install. So the 197.6 MiB binary costs ~104 MiB of download and
+costs zero extra code - no custom extraction step. That is what makes a ~155 MiB APK possible
 instead of the ~270 MB earlier drafts assumed, and it retires assumption A-6.
 
 The 197.6 MiB breaks down as `.bun` 132.8 MB (the app's own JavaScript) + `.text`/`.rodata`

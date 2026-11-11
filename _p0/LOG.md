@@ -190,3 +190,58 @@ assumption A-4, all from `opencode-src` with `path:line` citations. The headline
 Note: docs were read at the **pinned** version. npm `latest` is now 2.1.2 while the clone and the
 staged ARM binary are 2.1.1; the pin in [06 §1](../docs/06-artifact-verification.md#1-artifact-identity)
 still governs.
+
+## Implementation pass — 2026-11-11
+
+The host-side code is now complete through P1/P2/P3; the device gate is untouched.
+
+**Fixed the reviewed blockers**
+
+1. `AndroidManifest.xml` now declares `MainActivity` as launcher and `EngineService` as a
+   `specialUse` foreground service. The built APK has a real activity and service.
+2. `RootfsManager` no longer calls `File.exists()` on the guest-absolute `/bin/sh`; it checks
+   `bin/busybox` as a file and `Files.isSymbolicLink` for `bin/sh`. Extraction no longer fails on a
+   correct rootfs.
+3. `EngineLauncher` emits `HOME=/root`, `TMPDIR=/tmp`, `TERM`, a full `PATH`, and
+   `OPENCODE_PASSWORD=…` as assignments, not `env -u`. The unit test now asserts assignments.
+4. `proot-deps.dat` is extracted into `files/proot-libs`; `libopencode.so` stays in
+   `nativeLibraryDir` and is bind-mounted at `/usr/local/bin/opencode` instead of copied into app
+   data (where Android would refuse to exec it).
+
+**Implemented**
+
+- `EngineService` + `EngineController`: specialUse FGS, wake lock, rootfs/proot setup, stable
+  password, DNS from `LinkProperties`, health poll, process supervision, SSE with reconnect/resync,
+  decision timeout (5 min → deny), notifications, watch bridge.
+- `MainActivity`: extraction progress, WebView host with auth token, dark first frame, back
+  navigation, file chooser, media permission, mobile CSS injection, native mic overlay, SAF folder
+  import, menu (import/permissions/battery/restart/quit), battery-exemption prompt.
+- `VoiceInput` (system STT) and `WhisperVoiceInput` (PCM clip) with the bundled whisper.cpp 1.9.5
+  `tiny.en-q5_1` model; `ComposerBridge` sets the composer without touching the served HTML.
+- `WearBridge` + `WearProtocol` + `WatchProtocol`: `MessageClient` status/commands, `DataItem`
+  pending decisions, `ChannelClient` µ-law audio, capability discovery, 1 Hz status throttle.
+- `wear/`: standalone watch APK with status, approve/deny, stop, hold-to-talk (watch STT when
+  available, µ-law audio fallback), haptics, reconnect polling, notification.
+- Build: `fetch_binaries.py` pins whisper.cpp source and model; CMake/JNI build; `build.sh` builds
+  both APKs and checks the engine inside the phone APK; CI installs NDK/CMake and uploads both.
+
+**Measured**
+
+| | |
+|---|---|
+| Phone APK | 154,812,205 bytes |
+| Watch APK | 5,073,985 bytes |
+| rootfs | 14,455,553 bytes, 1,629 tar members, 36 packages |
+| rootfs `tar_sha256` | `b1d10529…` |
+| engine in APK | 207,162,576 bytes, sha256 `e07ad6dd…` |
+| tests | 43, 0 failures, 1 POSIX-only skip |
+
+**New trap:** AGP's `stripDebugDebugSymbols` silently rewrote the engine to 207,096,264 bytes.
+Keeping debug symbols for both engine and proot produced a 260 MB APK with a 104 MB hole. The build
+now keeps `libopencode.so` only, lets proot be stripped (size unchanged), and `check_apk_asset.py`
+asserts the engine size and sha256 in the APK.
+
+**Still blocked on hardware:** P0-1…P0-8, P1-10, P2-4/P2-6/P2-8, P3-0, P3-9. Specifically:
+does proot/ptrace run, does the stock engine boot and serve, is DNS/TLS correct, does backgrounding
+survive, is the WebView usable on glass, how fast is whisper on the S20 FE, and does the Watch 4 have
+its own recognizer. No device attached as of this pass.

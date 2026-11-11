@@ -6,55 +6,64 @@ import java.io.File
 /**
  * Builds and runs the proot command line that starts `opencode serve` inside the Alpine rootfs.
  *
- * Everything here is deliberately free of Android APIs except [java.io.File] so the command line
- * can be asserted off-device; only [start] touches the process model.
+ * The engine binary is NOT copied into the rootfs. It stays in `nativeLibraryDir`, the only place
+ * Android >= 10 lets a third-party app execute, and is bind-mounted into the guest at
+ * [GUEST_ENGINE]. Copying it into app data would produce a file the kernel refuses to exec.
  */
 object EngineLauncher {
 
     const val PORT = 4096
     const val HOSTNAME = "127.0.0.1"
+    const val GUEST_ENGINE = "/usr/local/bin/opencode"
+    const val GUEST_WORKSPACE = "/workspace"
 
     /**
-     * The files the app writes into its private dir on first run.
-     * `rootfs/` is the extracted Alpine tree; `bin/proot` ships as `libproot.so`.
+     * The files the app owns.
+     * `rootfs/` is the extracted Alpine tree; `proot-libs/` receives `proot-deps.dat`.
      */
     class Layout(val filesDir: File, val nativeLibraryDir: File) {
         val rootfs = File(filesDir, "rootfs")
         val proot = File(nativeLibraryDir, "libproot.so")
-        val opencode = File(rootfs, "usr/local/bin/opencode")
+        val engine = File(nativeLibraryDir, "libopencode.so")
+        val prootLibs = File(filesDir, "proot-libs")
         val resolvConf = File(rootfs, "etc/resolv.conf")
-        val tmp = File(filesDir, "proot-tmp")
+        val tmp = File(filesDir, "tmp")
         val home = File(filesDir, "home")
         val workspace = File(filesDir, "workspace")
-        val marker = File(rootfs, ".ok")
+        val guestEngineDir = File(rootfs, "usr/local/bin")
     }
 
     /**
-     * @param dnsServers servers from the *current* network, written to the rootfs's resolv.conf.
-     *   Empty means leave whatever is there; the engine then has no DNS.
+     * @param password the stable password from [PasswordStore]. The engine reads it from the
+     *   environment; without it `serve` generates a random password on every launch.
      */
-    fun command(L: Layout, dnsServers: List<String>, password: String, homeDir: File = L.home): List<String> {
+    fun command(L: Layout, password: String): List<String> {
         val binds = listOf(
             "/dev" to "/dev",
             "/proc" to "/proc",
             "/sys" to "/sys",
-            L.workspace.absolutePath to "/workspace",
-            homeDir.absolutePath to "/root",
+            L.tmp.absolutePath to "/tmp",
+            L.workspace.absolutePath to GUEST_WORKSPACE,
+            L.home.absolutePath to "/root",
+            L.engine.absolutePath to GUEST_ENGINE,
         )
         return buildList {
             add(L.proot.absolutePath)
             add("-0")
             add("--link2symlink")
             add("-r"); add(L.rootfs.absolutePath)
-            add("-w"); add("/root")
+            add("-w"); add(GUEST_WORKSPACE)
             binds.forEach { (host, guest) -> add("-b"); add("$host:$guest") }
             add("/usr/bin/env")
             add("-i")
-            add("-u"); add("HOME=/root")
-            add("-u"); add("TERM=xterm-256color")
-            add("-u"); add("PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin")
-            add("-u"); add("OPENCODE_PASSWORD=$password")
-            add(L.opencode.absolutePath)
+            // `env -i` clears the environment. These are assignments, NOT `-u` flags: `-u NAME`
+            // unsets, and with `-u NAME=value` the engine would receive none of them.
+            add("HOME=/root")
+            add("TMPDIR=/tmp")
+            add("TERM=xterm-256color")
+            add("PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin")
+            add("OPENCODE_PASSWORD=$password")
+            add(GUEST_ENGINE)
             add("serve")
             add("--hostname"); add(HOSTNAME)
             add("--port"); add(PORT.toString())
@@ -65,20 +74,25 @@ object EngineLauncher {
         dnsServers.filter { it.isNotBlank() }.joinToString("\n") { "nameserver $it" } + "\n"
 
     /**
-     * proot sets its own LD_LIBRARY_PATH for the guest; the host-side value must only carry the
-     * two Bionic libraries proot itself links against.
+     * Environment for proot itself, not for the guest. proot is a Bionic binary; its two
+     * non-system libraries (libtalloc, libandroid-shmem) are extracted from `proot-deps.dat`
+     * into [Layout.prootLibs].
      */
-    fun environment(L: Layout, libDir: File): Map<String, String> = mapOf(
-        "LD_LIBRARY_PATH" to libDir.absolutePath,
+    fun environment(L: Layout): Map<String, String> = mapOf(
+        "LD_LIBRARY_PATH" to L.prootLibs.absolutePath,
         "PROOT_TMP_DIR" to L.tmp.absolutePath,
         "PROOT_NO_SECCOMP" to "1",
     )
 
     fun start(L: Layout, dnsServers: List<String>, password: String): Process {
-        listOf(L.tmp, L.home, L.workspace).forEach { it.mkdirs() }
-        L.resolvConf.writeText(resolvConf(dnsServers))
-        val pb = ProcessBuilder(command(L, dnsServers, password))
-        pb.environment().putAll(environment(L, L.proot.parentFile!!.let { File(it.parentFile, "ocportable-libs") }))
+        listOf(L.tmp, L.home, L.workspace, L.prootLibs, L.guestEngineDir).forEach { it.mkdirs() }
+        // Empty DNS means "leave the image's default"; writing an empty file would remove it.
+        if (dnsServers.any { it.isNotBlank() }) {
+            L.resolvConf.parentFile?.mkdirs()
+            L.resolvConf.writeText(resolvConf(dnsServers))
+        }
+        val pb = ProcessBuilder(command(L, password))
+        pb.environment().putAll(environment(L))
         pb.redirectErrorStream(true)
         return pb.start()
     }

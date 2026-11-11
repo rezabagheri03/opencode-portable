@@ -12,24 +12,29 @@ silent failures.
 
 ```
 tools/build.sh                   # the whole build, local and CI: binaries → rootfs → tests → APK
-  └─ fetch_binaries.py           downloads and hash-checks the engine, proot, proot deps
+  └─ fetch_binaries.py           downloads and hash-checks the engine, proot, proot deps, whisper source/model
   └─ rootfs/build.py             resolves packages, assembles rootfs.tar.gz + MANIFEST.json
   └─ rootfs/verify.py            inspects the archive without extracting it
-  └─ rootfs/check_apk_asset.py   asserts the APK carries those exact bytes
+  └─ rootfs/check_apk_asset.py   asserts the APK carries those exact bytes and the pinned engine
 ```
 
 Everything is offline after the first run; downloads are cached under `.cache/rootfs/`.
 
 **Reproducible across machines, with one caveat [V].** A Windows build and an Ubuntu CI build
-produce **byte-identical tar payloads**: `tar_sha256 a95a5a2b…`, 1,636 members, same order, same
-modes, uid/gid and mtimes, and identical file contents (verified member by member).
+produce **byte-identical tar payloads**: `tar_sha256 b1d10529…`, 1,627 unique paths (1,629 tar
+members), same order, same modes, uid/gid and mtimes, and identical file contents (verified member
+by member).
 
 The compressed `.tar.gz` bytes are **not** identical between hosts, and cannot be pinned meaningfully:
 they differ because Python links whatever zlib it was built against — Windows CPython 3.14 reports
 `1.3.1.zlib-ng`, Ubuntu's uses stock zlib — and the two emit different but equally valid deflate
-streams for identical input (14,455,551 vs 14,504,416 bytes). `MANIFEST.json` therefore records
+streams for identical input (14,455,553 vs 14,504,416 bytes). `MANIFEST.json` therefore records
 `tar_sha256` as the authoritative hash and `gz_sha256` as informational. Pinning the `.gz` would have
 failed CI on a build that was correct.
+
+The tar hash is stable across *hosts* at a given Alpine package index, not across *time*: `build.py`
+resolves `APKINDEX`, so a package refresh changes the payload. `MANIFEST.json` records exactly what
+was shipped; a release should archive it. Pinning the index itself is future work.
 
 Within one machine, two consecutive builds are byte-identical. That required writing the gzip header
 through a `GzipFile` with an explicit `mtime`; setting it on the `TarFile` instead does nothing,
@@ -49,8 +54,9 @@ because tarfile only controls the header of the `GzipFile` it is given.
 | `bash` | 5.3.9-r1 | `ShellSelect` probes `bash` before `sh` |
 | `busybox` | 1.37.0-r31 | the applet symlinks that make up `/bin` and `/usr/bin` |
 
-**Measured:** 14,455,551 bytes compressed, 1,636 members, 520 symlinks, `tar_bytes` 36,823,040.
-[03](03-platform.md) estimated ~16 MB compressed and ~45 MB unpacked; both hold.
+**Measured:** 14,455,553 bytes compressed, 1,629 tar members (1,627 unique paths), 520 symlinks,
+254 hard links, `tar_bytes` 36,812,800. [03](03-platform.md) estimated ~16 MB compressed and ~45 MB
+unpacked; both hold.
 
 `verify.py` asserts the load-bearing members and every symlink chain, so a package that silently
 stops pulling in `libstdc++` fails the build instead of the device.
@@ -137,6 +143,12 @@ Extraction writes to `rootfs.staging/` and only moves it into place once complet
 run can never leave a half-written tree that the next launch trusts. The stamp holds the rootfs
 `tar_sha256` from `MANIFEST.json`, compiled into `BuildConfig`, so a rebuilt rootfs replaces a stale
 one instead of being silently kept.
+
+**One more host-filesystem trap.** `File.exists()` follows symlinks, and `/bin/sh` is a link to the
+guest-absolute `/bin/busybox`. On stock Android that path does not exist outside the rootfs, so a
+perfectly extracted tree would be judged `Stale` and re-extracted on every launch. `RootfsManager`
+checks `bin/busybox` as a real file and uses `Files.isSymbolicLink` for `bin/sh`; the unit test
+extracts the real archive and asserts both. The same rule applies to any future integrity walk.
 
 ### Three traps in the extractor
 

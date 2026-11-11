@@ -15,6 +15,11 @@ dist/
 .cache/
 app/src/main/assets/rootfs.dat
 
+# Fetched whisper.cpp source and model (tools/fetch_binaries.py pins both).
+app/src/main/cpp/whisper.cpp/
+app/src/main/assets/whisper-model.bin
+app/.cxx/
+
 # The reference copy of the engine and its npm tarball, used during the survey phase. Both are
 # fetched and hash-checked by tools/fetch_binaries.py now (198 MB and 97 MB, over GitHub's limit).
 _artifacts/musl/
@@ -30,3 +35,7 @@ _p0/downloads/
 
 # Build logs
 *.log
+
+# Python cache created by tools/rootfs/check_apk_asset.py importing fetch_binaries
+tools/__pycache__/
+__pycache__/
