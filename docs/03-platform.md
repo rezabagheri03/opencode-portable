@@ -299,7 +299,7 @@ Then renamed to `libopencode.so` and placed at `app/src/main/jniLibs/arm64-v8a/`
 | `abiFilters` | `arm64-v8a` only | The device is arm64; emulator builds are separate debug variants |
 | `extractNativeLibs` | `true` | Required to exec |
 | ABI splits | Yes, for the watch | Watch APK must not carry the 197.6 MiB binary |
-| `useLegacyPackaging` | unset | Leave modern packaging alone |
+| `useLegacyPackaging` | `true` | `extractNativeLibs=true`; required to exec from `nativeLibraryDir` |
 
 ### Signing and install
 
@@ -308,7 +308,11 @@ Then renamed to `libopencode.so` and placed at `app/src/main/jniLibs/arm64-v8a/`
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Debug-signed is correct for a single-user sideload. Create a release keystore only if you ever share the APK — and remember that doing so triggers the GPL obligations in [05-risks.md](05-risks.md#licensing).
+Debug-signed is correct for a single-user sideload. For a shareable build, copy
+`keystore.properties.example` to `keystore.properties`, create the keystore it points at, and run
+`./gradlew :app:assembleRelease :wear:assembleRelease`. Without that file the release build falls
+back to the debug key. Sharing the APK triggers the GPL obligations in
+[05-risks.md](05-risks.md#licensing).
 
 ### Installing on the watch
 

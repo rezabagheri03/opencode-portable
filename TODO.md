@@ -19,7 +19,7 @@ The work, in order. Every task has an acceptance criterion, because "done" that 
 
 ## Current state (2026-11-11)
 
-The code path is complete through P1/P2/P3 except for the pieces that require a device. **P0 is still 0/8 and is still the gate.** The known code blockers from the first code review (no launcher activity, the guest-symlink check, the `env -u` bug, missing proot deps/engine staging) are fixed. Unit tests are green (43 tests, 1 POSIX-only skip), both APKs assemble, and CI run `43079033720` is green. See [_p0/LOG.md](_p0/LOG.md) for the pass notes.
+The code path is complete through P1/P2/P3 except for the pieces that require a device. **P0 is still 0/8 and is still the gate.** The known code blockers from the first code review (no launcher activity, the guest-symlink check, the `env -u` bug, missing proot deps/engine staging) are fixed. Unit tests are green (45 tests, 1 POSIX-only skip), both APKs assemble, and CI run `43079033720` is green. See [_p0/LOG.md](_p0/LOG.md) for the pass notes.
 
 ---
 
@@ -190,7 +190,7 @@ Everything else waits.
 | P4-1 | Narrow the build entrypoint | A `bun build --compile` from source without the TUI/desktop entrypoints works and the GUI is unaffected; size delta measured against the 197.6 MiB baseline. **Ceiling is the 132.8 MB `.bun` section, floor is 69.6 MB of native Bun/JSC** — there is no Skia to strip ([06 §4](docs/06-artifact-verification.md#4-where-the-bytes-are-v)) | 5–8 d |
 | P4-2 | Rootfs slimming | Rootfs under 10 MB compressed with no loss of function; `apk info` inventory still accurate | 1 d |
 | P4-3 | *(optional)* Native chat screen | Only if R-04 fires: a Kotlin chat screen talking to the same API, WebView retained for settings and diffs | 3–4 wk |
-| P4-4 | Release signing + update path | A repeatable signed build and a documented upgrade procedure that preserves sessions and workspace | 2 d |
+| P4-4 ◐ | Release signing + update path | A repeatable signed build and a documented upgrade procedure that preserves sessions and workspace. `keystore.properties` plumbing is in place; the keystore itself is user-supplied | 2 d |
 | P4-5 | *(only if publishing)* Play readiness | targetSdk 36, 16 KB alignment, FGS declaration, data-safety form, GPL disclosure | 1–2 wk |
 
 ---

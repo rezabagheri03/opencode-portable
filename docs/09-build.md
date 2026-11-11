@@ -118,14 +118,16 @@ and the APK sizes. The earlier `['rootfs']['sha256']` key was wrong — the mani
 
 **Verified locally.** The script runs clean from a deleted `app/build/` and `.cache/`, on Windows
 with Git Bash, JDK 21, and no Docker. The rootfs is byte-identical across same-index rebuilds, the
-APK asset check passes, and the engine inside the APK is still the pinned binary. 43 unit tests pass
+APK asset check passes, and the engine inside the APK is still the pinned binary. 45 unit tests pass
 (1 POSIX-only skip).
 
 **Not verified on hardware.** No device was attached during this pass. P0 is still 0/8.
 
-**Signing is debug-only.** The app has no release signing config beyond reusing the debug keystore
-(`app/build.gradle.kts`), which is deliberate for a sideloaded personal build and is not a shippable
-configuration. P4-4 is the release-signing task.
+**Release signing is scaffolded, not armed.** `keystore.properties.example` shows the four keys;
+copy it to `keystore.properties` and point `storeFile` at a keystore you control. Both modules read
+it, and `assembleRelease` falls back to the debug key when the file is absent. Until you create that
+keystore, a release APK is still debug-signed and is not a shareable configuration. P4-4 is the
+remaining release task.
 
 ## Reproducing a released APK
 

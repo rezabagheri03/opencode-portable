@@ -28,6 +28,11 @@ _artifacts/*.tgz
 # Read-only upstream reference clone
 opencode-src/
 
+# Release signing secrets (see keystore.properties.example)
+keystore.properties
+*.jks
+*.keystore
+
 # Spike scratch and downloaded reference material
 _p0/scratch/
 _p0/extract/

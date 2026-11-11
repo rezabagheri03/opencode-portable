@@ -225,6 +225,8 @@ The host-side code is now complete through P1/P2/P3; the device gate is untouche
   available, µ-law audio fallback), haptics, reconnect polling, notification.
 - Build: `fetch_binaries.py` pins whisper.cpp source and model; CMake/JNI build; `build.sh` builds
   both APKs and checks the engine inside the phone APK; CI installs NDK/CMake and uploads both.
+- Release signing: `keystore.properties` support in both modules, with a documented example; falls
+  back to the debug key when absent. The user still has to create the keystore.
 
 **Measured**
 
@@ -235,7 +237,7 @@ The host-side code is now complete through P1/P2/P3; the device gate is untouche
 | rootfs | 14,455,553 bytes, 1,629 tar members, 36 packages |
 | rootfs `tar_sha256` | `b1d10529…` |
 | engine in APK | 207,162,576 bytes, sha256 `e07ad6dd…` |
-| tests | 43, 0 failures, 1 POSIX-only skip |
+| tests | 45, 0 failures, 1 POSIX-only skip |
 
 **New trap:** AGP's `stripDebugDebugSymbols` silently rewrote the engine to 207,096,264 bytes.
 Keeping debug symbols for both engine and proot produced a 260 MB APK with a 104 MB hole. The build
