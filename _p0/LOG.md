@@ -247,6 +247,6 @@ does proot/ptrace run, does the stock engine boot and serve, is DNS/TLS correct,
 survive, is the WebView usable on glass, how fast is whisper on the S20 FE, and does the Watch 4 have
 its own recognizer. No device attached as of this pass.
 
-**CI:** run `43076771989` is green (3m43s) on the native+wear commit. The CI APK and rootfs hashes
-differ from the local ones for the documented reasons (debug signer; package index cache), and the
-in-APK content checks pass.
+**CI:** run `43079033720` is green (3m14s) on the lifecycle-hardening commit. The CI APK and rootfs
+hashes differ from the local ones for the documented reasons (debug signer; package index cache),
+and the in-APK content checks pass.
